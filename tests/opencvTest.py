@@ -12,9 +12,10 @@ import pytesseract
 import winsound
 
 # Nom de la fenêtre cible (doit être exactement le titre affiché)
-window_title = "Rekordbox"
+window_title = "rekordbox"
 
 pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
+custom_config = r'--oem 3 --psm 6'  # Mode de segmentation
 
 # Trouver la fenêtre
 windows = gw.getWindowsWithTitle(window_title)
@@ -25,7 +26,30 @@ if not windows:
 window = windows[0]
 hwnd = window._hWnd  # Handle de la fenêtre
 
-custom_config = r'--oem 3 --psm 6'  # Mode de segmentation
+
+# Fonction callback pour afficher la position de la souris
+def mouse_callback(event, x, y, flags, param):
+    if event == cv2.EVENT_MOUSEMOVE:  # Détecter le mouvement de la souris
+        print(f"Position de la souris : ({x}, {y})")
+
+cv2.namedWindow("windows")
+cv2.setMouseCallback("windows", mouse_callback)
+
+class SquareSelection():
+
+    def __init__(self, x, y, width, heigth):
+        self.x = x
+        self.y = y
+        self.width = width
+        self.heigth = heigth
+
+deck1Area = SquareSelection(810, 157, 300, 70)
+deck2Area = SquareSelection(810, 230, 300, 70)
+
+master1Detect = SquareSelection(900, 325, 50, 15)
+master2Detect = SquareSelection(1850, 325, 50, 15)
+
+useDeck = deck1Area
 
 def capture_window(hwnd):
     """ Capture le contenu d'une fenêtre spécifique même si elle est en arrière-plan """
@@ -61,10 +85,12 @@ def capture_window(hwnd):
     # Convertir en BGR pour OpenCV
     return cv2.cvtColor(img, cv2.COLOR_BGRA2BGR)
 
-def crop_region(image, x, y, width, height):
+#permet de décopuper une partie souhaité
+def crop_region(image, square:SquareSelection):
     """ Découpe une région spécifique de l'image """
-    return image[y:y+height, x:x+width]
+    return image[square.y:square.y+square.heigth, square.x:square.x + square.width]
 
+#permet de ne pas ajouter deux fois la mm bar
 def ajouter_si_pas_trop_proche(liste, element, seuil):
     for e in liste:
         if abs(e - element) < seuil:
@@ -76,7 +102,7 @@ i = 0
 
 
 def detect_vertical_white_line(image, min_height=50, max_gap=10):
-    image = crop_region(image, 800, 157, 500, 70)
+    image = crop_region(image, useDeck)
 
     # 🔍 Convertir en niveaux de gris et HSV
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
@@ -116,31 +142,20 @@ def detect_vertical_white_line(image, min_height=50, max_gap=10):
 
     return image
 
-while True:
 
-    image = capture_window(hwnd)
-
-    image = crop_region(image, 800 , 157, 500, 70)
-
-
-    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    #image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
-
-    # 🎨 Convertir en HSV pour détection de couleur
-    hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
-
+def beatDetection():
     # 🔍 Définir la couleur cible (gris)
     lower_bound = np.array([0, 0, 10])  # Min HSV
     upper_bound = np.array([0, 0, 200])  # Max HSV
-    mask = cv2.inRange(hsv, lower_bound, upper_bound)
+    maskGrayBar = cv2.inRange(hsv, lower_bound, upper_bound)
 
     lower_bound = np.array([0, 0, 150])  # Min HSV
     upper_bound = np.array([0, 0, 255])  # Max HSV
-    mask2 = cv2.inRange(hsv, lower_bound, upper_bound)
+    maskWhiteBar = cv2.inRange(hsv, lower_bound, upper_bound)
 
-    # 📏 Trouver les contours
-    contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    min_height = 2
+    # 📏 Trouver les contours des basic beat
+    contours, _ = cv2.findContours(maskGrayBar, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    min_height = 4
     # Liste des contours valides
     valid_contours = []
 
@@ -157,34 +172,94 @@ while True:
         x1, y1, w1, h1 = valid_contours[i]
         for j in range(i + 1, len(valid_contours)):
             x2, y2, w2, h2 = valid_contours[j]
-            if(abs(x1-x2)<10):
-                ajouter_si_pas_trop_proche(basicBeat, (x1+x2)/2, 10)
+            if (abs(x1 - x2) < 10):
+                ajouter_si_pas_trop_proche(basicBeat, (x1 + x2) / 2, 10)
 
+    # 📏 Trouver les contours
+    contours, _ = cv2.findContours(maskWhiteBar, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    min_height = 2
+    # Liste des contours valides
+    valid_contours = []
+
+    mainBeat = []
+
+    # 🎯 Définir une hauteur minimale pour filtrer
+    for cnt in contours:
+        x, y, w, h = cv2.boundingRect(cnt)
+        mainBeat.append(x)
+
+    print(valid_contours)
 
     basicBeat.sort()
+    mainBeat.sort()
 
-    #print(len(basicBeat))
+    print(mainBeat)
+
+    # a changé mais permet de pas bip en permanence
+    if 160 in mainBeat:
+        mainBeat.remove(160)
 
     for i in basicBeat:
         cv2.line(image, (int(i), 0), (int(i), 100), (0, 255, 0), 2)
-        if(abs(i-158)<5):
+        if (abs(i - 158) < 5):
+            winsound.Beep(700, 50)
+
+    for i in mainBeat:
+        cv2.line(image, (int(i), 0), (int(i), 100), (0, 255, 0), 2)
+        if (abs(i - 158) < 5):
             winsound.Beep(1000, 50)
 
-
-   # text = pytesseract.image_to_string(gray, config=custom_config)
+    # text = pytesseract.image_to_string(gray, config=custom_config)
 
     # Afficher le texte détecté sur la vidéo
-   # cv2.putText(image, text.strip(), (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2, cv2.LINE_AA)
+    # cv2.putText(image, text.strip(), (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2, cv2.LINE_AA)
 
     # Affi
     # 🖥 Afficher en temps réel
-    #image = detect_vertical_white_line(image, 30, 10)
+    # image = detect_vertical_white_line(image, 30, 10)
 
-    cv2.imshow("Détection en Temps Réel", mask2)
+    #cv2.imshow("Détection en Temps Réel", image)
 
-    # ⏹ Quitter avec 'q'
+
+def detectMaster(rekordBoxImage):
+    LOWER_ORANGE = np.array([5, 150, 150])  # Valeur minimale (en HSV)
+    UPPER_ORANGE = np.array([15, 255, 255])  # Valeur maximale (en HSV)
+
+    deck1Image = crop_region(rekordBoxImage, master1Detect)
+
+    # Convertir l'image en espace HSV
+    hsv = cv2.cvtColor(deck1Image, cv2.COLOR_BGR2HSV)
+
+    # Créer un masque pour la couleur orange
+    mask = cv2.inRange(hsv, LOWER_ORANGE, UPPER_ORANGE)
+
+    # Calculer la proportion de pixels orange
+    orange_pixels = np.count_nonzero(mask)
+    total_pixels = mask.size
+    proportion = orange_pixels / total_pixels
+
+    if proportion > 0.05:
+        return 1
+    else:
+        return 2
+
+
+while True:
+
+    image = capture_window(hwnd)
+
+    hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+
+    #cv2.imshow("windows", image)
+    cv2.imshow("windows", image)
+
+    print(detectMaster(image))
+
+
     if cv2.waitKey(1) & 0xFF == ord('q'):
-        break
+        break  # Quitter la boucle avec 'q'
 
 # 🔚 Fermer les fenêtres
 cv2.destroyAllWindows()
+
+
