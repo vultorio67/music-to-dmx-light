@@ -1,1 +1,3 @@
-from .RekordboxWindow import RekordboxWindow
+#from .RekordboxWindow import RekordboxWindow
+
+from .controller import MainController

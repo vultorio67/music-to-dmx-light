@@ -1,3 +1,5 @@
+import math
+import threading
 import time
 
 import cv2
@@ -25,31 +27,41 @@ if not windows:
 
 window = windows[0]
 hwnd = window._hWnd  # Handle de la fenêtre
+print(windows)
 
 
 # Fonction callback pour afficher la position de la souris
-def mouse_callback(event, x, y, flags, param):
-    if event == cv2.EVENT_MOUSEMOVE:  # Détecter le mouvement de la souris
-        print(f"Position de la souris : ({x}, {y})")
-
-cv2.namedWindow("windows")
-cv2.setMouseCallback("windows", mouse_callback)
 
 class SquareSelection():
-
     def __init__(self, x, y, width, heigth):
         self.x = x
         self.y = y
         self.width = width
         self.heigth = heigth
 
-deck1Area = SquareSelection(810, 157, 300, 70)
-deck2Area = SquareSelection(810, 230, 300, 70)
+deck1Area = SquareSelection(930, 157, 150, 70)
+deck2Area = SquareSelection(930, 230, 300, 70)
 
 master1Detect = SquareSelection(900, 325, 50, 15)
 master2Detect = SquareSelection(1850, 325, 50, 15)
 
+timeLineOne = SquareSelection(10, 340, 950, 40)
+timeLineTwo = SquareSelection(970,340,950,40)
+
+partDetectionOne = SquareSelection(10, 380, 950, 15)
+partDetectionTwo = SquareSelection(970, 380, 950, 15)
+
 useDeck = deck1Area
+
+class Beat:
+    def __init__(self, id, x):
+        self.id = id
+        self.x = x
+        self.isPast = False
+
+    def __str__(self):
+        return f"id: {self.id}, x: {self.x}, isPast: {self.isPast}"
+
 
 def capture_window(hwnd):
     """ Capture le contenu d'une fenêtre spécifique même si elle est en arrière-plan """
@@ -76,11 +88,15 @@ def capture_window(hwnd):
     bmpstr = saveBitmap.GetBitmapBits(True)
     img = np.frombuffer(bmpstr, dtype=np.uint8).reshape((bmpinfo['bmHeight'], bmpinfo['bmWidth'], 4))
 
+
     # Libérer les ressources
     win32gui.DeleteObject(saveBitmap.GetHandle())
     saveDC.DeleteDC()
     mfcDC.DeleteDC()
     win32gui.ReleaseDC(hwnd, hwndDC)
+
+
+    #cv2.imshow("test", cv2.cvtColor(img, cv2.COLOR_BGRA2BGR))
 
     # Convertir en BGR pour OpenCV
     return cv2.cvtColor(img, cv2.COLOR_BGRA2BGR)
@@ -101,49 +117,23 @@ def ajouter_si_pas_trop_proche(liste, element, seuil):
 i = 0
 
 
-def detect_vertical_white_line(image, min_height=50, max_gap=10):
-    image = crop_region(image, useDeck)
+detected_beats = []  # Liste des timestamps des beats détectés
 
-    # 🔍 Convertir en niveaux de gris et HSV
-    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+def on_beat_detected():
+    detected_beats.append(time.time())
 
-    # 🎨 Définir les seuils pour le blanc
-    lower_white = np.array([0, 0, 180])
-    upper_white = np.array([180, 50, 255])
-    mask_white = cv2.inRange(hsv, lower_white, upper_white)
-
-    # 📏 Trouver les contours
-    contours, _ = cv2.findContours(mask_white, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-
-    valid_contours = []
-
-    for cnt in contours:
-        x, y, w, h = cv2.boundingRect(cnt)
-        if h >= min_height and w < 10:  # Filtrer les lignes verticales fines
-            valid_contours.append((x, y, w, h))
-
-    # 🔴 Vérifier la présence de rouge en haut et en bas
-    lower_red1 = np.array([0, 120, 70])
-    upper_red1 = np.array([10, 255, 255])
-    lower_red2 = np.array([170, 120, 70])
-    upper_red2 = np.array([180, 255, 255])
-
-    mask_red1 = cv2.inRange(hsv, lower_red1, upper_red1)
-    mask_red2 = cv2.inRange(hsv, lower_red2, upper_red2)
-    mask_red = mask_red1 | mask_red2  # Union des deux masques
-
-    for x, y, w, h in valid_contours:
-        top_red = np.any(mask_red[y:y + 5, x:x + w])  # Vérifier le rouge en haut
-        bottom_red = np.any(mask_red[y + h - 5:y + h, x:x + w])  # Vérifier le rouge en bas
-
-        if top_red and bottom_red:
-            cv2.rectangle(image, (x, y), (x + w, y + h), (0, 255, 0), 2)  # ✅ Ligne validée
-
-    return image
+def get_predicted_beat():
+    if len(detected_beats) < 2:
+        return None  # Pas assez d'info pour prédire
+    intervals = np.diff(detected_beats[-5:])  # Derniers intervalles
+    avg_interval = np.mean(intervals)
+    next_beat = detected_beats[-1] + avg_interval
+    return next_beat
 
 
-def beatDetection():
+beatList = []
+
+def beatDetection(hsv, image):
     # 🔍 Définir la couleur cible (gris)
     lower_bound = np.array([0, 0, 10])  # Min HSV
     upper_bound = np.array([0, 0, 200])  # Max HSV
@@ -166,6 +156,7 @@ def beatDetection():
             valid_contours.append((x, y, w, h))
 
     basicBeat = []
+    mainBeat = []
 
     # 🎯 Relier les contours qui sont proches et dessiner la ligne
     for i in range(len(valid_contours)):
@@ -181,33 +172,69 @@ def beatDetection():
     # Liste des contours valides
     valid_contours = []
 
-    mainBeat = []
 
     # 🎯 Définir une hauteur minimale pour filtrer
     for cnt in contours:
         x, y, w, h = cv2.boundingRect(cnt)
         mainBeat.append(x)
 
-    print(valid_contours)
+    #print(valid_contours)
+
+    for i in mainBeat:
+        basicBeat.append(i)
 
     basicBeat.sort()
-    mainBeat.sort()
 
-    print(mainBeat)
+    for beat in basicBeat:
+        detected = False
+        for i in beatList:
+            if abs(i.x - beat) < 50:
+                i.x = beat
+                detected = True
+
+        if detected == False:
+            try:
+                newBeat = Beat(beatList[-1].id+1, beat)
+                print("création")
+            except:
+                newBeat = Beat(0, beat)
+            beatList.append(newBeat)
+
+    for beat in beatList:
+        #print("beat", math.ceil(beat.x))
+        cv2.putText(image, f"{beat.id}", (math.ceil(beat.x), 30), cv2.FONT_HERSHEY_SIMPLEX,
+                    0.5, (255, 255, 255), 1, )
+        if beat.x < 28 and beat.isPast == False:
+            beat.isPast = True
+
+    if len(beatList) > 5:
+        beatList.pop(0)  # On garde que les 5 derniers
+
+    for i in beatList:
+        None
+        #print(i)
+
+    #mainBeat.sort()
+
+    #print(mainBeat)
 
     # a changé mais permet de pas bip en permanence
-    if 160 in mainBeat:
-        mainBeat.remove(160)
+    if 25 in mainBeat:
+        mainBeat.remove(25)
+    if 26 in mainBeat:
+        mainBeat.remove(26)
 
     for i in basicBeat:
         cv2.line(image, (int(i), 0), (int(i), 100), (0, 255, 0), 2)
-        if (abs(i - 158) < 5):
+        if (-10 < i - 25 < 0):
             winsound.Beep(700, 50)
+            on_beat_detected()
+        """predicted = get_predicted_beat()
+        if predicted and time.time() > predicted + 0.05:  # marge d'erreur
+            print("Beat manquant, insertion virtuelle à :", predicted)
+            winsound.Beep(1500, 50)
+            detected_beats.append(predicted)  # On ajoute un beat simulé"""
 
-    for i in mainBeat:
-        cv2.line(image, (int(i), 0), (int(i), 100), (0, 255, 0), 2)
-        if (abs(i - 158) < 5):
-            winsound.Beep(1000, 50)
 
     # text = pytesseract.image_to_string(gray, config=custom_config)
 
@@ -218,7 +245,7 @@ def beatDetection():
     # 🖥 Afficher en temps réel
     # image = detect_vertical_white_line(image, 30, 10)
 
-    #cv2.imshow("Détection en Temps Réel", image)
+    cv2.imshow("detect", image)
 
 
 def detectMaster(rekordBoxImage):
@@ -244,22 +271,48 @@ def detectMaster(rekordBoxImage):
         return 2
 
 
+pos = (0, 0)
+
+def mouse_callback(event, x, y, flags, param):
+    global pos
+    if event == cv2.EVENT_MOUSEMOVE:
+        pos = (x, y)
+        print(x)
+
+cv2.namedWindow("detect")
+cv2.setMouseCallback("detect", mouse_callback)
+
+
 while True:
 
     image = capture_window(hwnd)
 
-    hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+    cv2.putText(image, f"({pos[0]}, {pos[1]})", (10, 30), cv2.FONT_HERSHEY_SIMPLEX,
+                1, (255, 255, 255), 2)
 
-    #cv2.imshow("windows", image)
+    image2 = crop_region(image, partDetectionOne)
+
+    #
     cv2.imshow("windows", image)
 
-    print(detectMaster(image))
+    image = crop_region(image, deck1Area)
+
+    hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+
+
+    beatDetection(hsv, image)
+
+    #print(detectMaster(image))
 
 
     if cv2.waitKey(1) & 0xFF == ord('q'):
         break  # Quitter la boucle avec 'q'
 
+
 # 🔚 Fermer les fenêtres
 cv2.destroyAllWindows()
+
+
+
 
 

@@ -1,0 +1,20 @@
+[
+    {"color": [0, 50, 200], "moment": "INTRO"},
+    {"color": [125, 170, 0], "moment": "CHORUS 2"},
+    {"color": [255, 50, 140], "moment": "UP"},
+    {"color": [255, 50, 105], "moment": "UP 2"},
+    {"color": [255, 50, 90], "moment": "UP 3"},
+    {"color": [0, 170, 15], "moment": "CHORUS"},
+    {"color": [45, 115, 155], "moment": "DOWN"},
+    {"color": [211, 226, 234], "moment": "OUTRO 1"},
+    {"color": [175, 135, 95], "moment": "OUTRO 2"},
+
+    {"color": [70, 70, 225], "moment": "INTRO"},
+    {"color": [255, 110, 80], "moment": "VERSE 1"},
+    {"color": [255, 85, 80], "moment": "VERSE 2"},
+    {"color": [255, 80, 100], "moment": "VERSE 3"},
+    {"color": [255, 80, 120], "moment": "VERSE 4"},
+    {"color": [125, 195, 120], "moment": "CHORUS"},
+    {"color": [65, 215, 225], "moment": "BRIDGE"},
+    {"color": [150, 130, 115], "moment": "OUTRO"}
+]
