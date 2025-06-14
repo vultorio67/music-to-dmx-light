@@ -6,6 +6,7 @@ import multiprocessing
 
 import cv2
 
+from Util import Config
 from .DmxController import DMXController
 #from .RekordboxWindow import RekordboxWindow
 from .RekordboxWindow import RekordbowWindow
@@ -16,11 +17,15 @@ class MainController:
         # Queues pour la communication entre threads
         self.window_queue = Queue(maxsize=1)
 
+        self.config = Config()
+
         # Initialisation des gestionnaires
         #self.rekordboxWindows = RekordboxWindow(self.window_queue)
         self.beat_analyzer = BeatManager(self.window_queue )
         self.rekordboxWindow = RekordbowWindow()
         #self.dmx_controller = DMXController(self.beat_queue)
+
+        self.dmxController = DMXController(self.config.portDmx)
 
 
         # Threads
@@ -31,6 +36,9 @@ class MainController:
 
     def start(self):
         print("[MainController] Starting system...")
+
+        self.dmxController.start()
+
         for t in self.threads:
             t.start()
 
@@ -38,7 +46,7 @@ class MainController:
         self.video_process.start()
 
         self.beat_process = multiprocessing.Process(target=self.beat_analyzer.run, args=(self.window_queue,))
-        self.beat_process.start()
+        #self.beat_process.start()
 
         #self.rekordboxWindows.run()
 

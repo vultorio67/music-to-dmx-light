@@ -1,5 +1,8 @@
+import math
+
 import winsound
 
+from MusicDmx.BeatManager import Beat
 from Util import Config
 from Util import getColorDB
 
@@ -227,6 +230,64 @@ class RekordbowWindow:
         self.basicBeat.sort()
         self.mainBeat.sort()
 
+        if 150 in self.mainBeat:
+            self.mainBeat.remove(150)
+
+
+        for beat in self.basicBeat:
+            detected = False
+            for i in self.beatList:
+                if abs(i.x - beat) < 40:
+                    i.x = beat
+                    detected = True
+
+            if detected == False:
+                try:
+                    newBeat = Beat(self.beatList[-1].id + 1, beat)
+                    print("création")
+                except:
+                    newBeat = Beat(0, beat)
+                self.beatList.append(newBeat)
+
+        for beat in self.beatList:
+            # print("beat", math.ceil(beat.x))
+            cv2.putText(self.deckImage, f"{beat.id} {beat.isPast}", (math.ceil(beat.x), 30), cv2.FONT_HERSHEY_SIMPLEX,
+                        0.5, (255, 255, 255), 1, )
+            if beat.x < 150 and beat.isPast == False:
+                beat.isPast = True
+                winsound.Beep(700, 30)
+
+        for beat in self.mainBeat:
+            detected = False
+            for i in self.mainBeatList:
+                if abs(i.x - beat) < 60:
+                    i.x = beat
+                    detected = True
+
+            if detected == False:
+                try:
+                    newBeat = Beat(self.mainBeatList[-1].id + 1, beat)
+                    print("création")
+                except:
+                    newBeat = Beat(0, beat)
+                self.mainBeatList.append(newBeat)
+
+        for beat in self.mainBeatList:
+            # print("beat", math.ceil(beat.x))
+            cv2.putText(self.deckImage, f"{beat.id} {beat.isPast}", (math.ceil(beat.x), 30), cv2.FONT_HERSHEY_SIMPLEX,
+                        0.5, (255, 100, 255), 1, )
+            if beat.x < 150 and beat.isPast == False:
+                beat.isPast = True
+                winsound.Beep(1000, 30)
+        if len(self.beatList) > 5:
+            self.beatList.pop(0)  # On garde que les 5 derniers
+
+        if len(self.mainBeatList) > 5:
+            try:
+                self.mainBeat.pop(0)  # On garde que les 5 derniers
+            except:
+                None
+
 
 
     def getTimeLineActivePosition(self):
@@ -269,6 +330,9 @@ class RekordbowWindow:
 
     def run(self, queue : Queue):
 
+        self.beatList = []
+        self.mainBeatList = []
+
         last_action_time = time.time()
 
         current_master = self.master
@@ -281,7 +345,7 @@ class RekordbowWindow:
             current_time = time.time()
             if current_time - last_action_time >= 0.2:
                 self.master = self.detectMaster(self.capture_window(self.hwnd))
-                print(self.getCurrentActiveMoment())
+                #print(self.getCurrentActiveMoment())
                 last_action_time = current_time
 
             if current_master != self.master:
@@ -304,7 +368,7 @@ class RekordbowWindow:
             self.beatAnalisys()
 
             all = [self.basicBeat, self.mainBeat]
-            queue.put(all)
+            #queue.put(all)
 
             if 150 in self.mainBeat:
                 self.mainBeat.remove(150)
@@ -319,7 +383,7 @@ class RekordbowWindow:
             for i in self.mainBeat:
                 cv2.line(self.deckImage, (int(i), 0), (int(i), 100), (255, 0, 255), 2)
 
-            cv2.imshow("test", self.deckTimeLineImage)
+            cv2.imshow("test", self.deckImage)
 
 
             if cv2.waitKey(1) & 0xFF == ord('q'):

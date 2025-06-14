@@ -62,7 +62,8 @@ class DMXController:
         if not self.running:
             self.running = True
             self.thread = threading.Thread(target=self._run)
-            self.thread.daemon = True
+            #a definir plus tard car pour l'instant le programme s'arrète
+            #self.thread.daemon = True
             self.thread.start()
 
     def stop(self):

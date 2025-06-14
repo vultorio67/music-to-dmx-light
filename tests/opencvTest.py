@@ -39,17 +39,18 @@ class SquareSelection():
         self.width = width
         self.heigth = heigth
 
-deck1Area = SquareSelection(930, 157, 150, 70)
-deck2Area = SquareSelection(930, 230, 300, 70)
+
+deck1Area = SquareSelection(810, 157, 300, 70)
+deck2Area = SquareSelection(810, 230, 300, 70)
 
 master1Detect = SquareSelection(900, 325, 50, 15)
 master2Detect = SquareSelection(1850, 325, 50, 15)
 
-timeLineOne = SquareSelection(10, 340, 950, 40)
-timeLineTwo = SquareSelection(970,340,950,40)
+timeLine1 = SquareSelection(10, 340, 950, 40)
+timeLine2 = SquareSelection(970, 340, 950, 40)
 
-partDetectionOne = SquareSelection(10, 380, 950, 15)
-partDetectionTwo = SquareSelection(970, 380, 950, 15)
+partDetection1 = SquareSelection(10, 380, 950, 15)
+partDetection2 = SquareSelection(970, 380, 950, 15)
 
 useDeck = deck1Area
 
@@ -132,6 +133,7 @@ def get_predicted_beat():
 
 
 beatList = []
+mainBeatList = []
 
 def beatDetection(hsv, image):
     # 🔍 Définir la couleur cible (gris)
@@ -180,15 +182,18 @@ def beatDetection(hsv, image):
 
     #print(valid_contours)
 
-    for i in mainBeat:
-        basicBeat.append(i)
 
     basicBeat.sort()
+
+    if 150 in mainBeat:
+        mainBeat.remove(150)
+
+    print(mainBeat)
 
     for beat in basicBeat:
         detected = False
         for i in beatList:
-            if abs(i.x - beat) < 50:
+            if abs(i.x - beat) < 40:
                 i.x = beat
                 detected = True
 
@@ -202,13 +207,45 @@ def beatDetection(hsv, image):
 
     for beat in beatList:
         #print("beat", math.ceil(beat.x))
-        cv2.putText(image, f"{beat.id}", (math.ceil(beat.x), 30), cv2.FONT_HERSHEY_SIMPLEX,
+        cv2.putText(image, f"{beat.id} {beat.isPast}", (math.ceil(beat.x), 30), cv2.FONT_HERSHEY_SIMPLEX,
                     0.5, (255, 255, 255), 1, )
-        if beat.x < 28 and beat.isPast == False:
+        if beat.x < 150 and beat.isPast == False:
             beat.isPast = True
+            winsound.Beep(700, 50)
+
+    for beat in mainBeat:
+        detected = False
+        for i in mainBeatList:
+            if abs(i.x - beat) < 60:
+                i.x = beat
+                detected = True
+
+        if detected == False:
+            try:
+                newBeat = Beat(mainBeatList[-1].id+1, beat)
+                print("création")
+            except:
+                newBeat = Beat(0, beat)
+            mainBeatList.append(newBeat)
+
+    for beat in mainBeatList:
+        #print("beat", math.ceil(beat.x))
+        cv2.putText(image, f"{beat.id} {beat.isPast}", (math.ceil(beat.x), 30), cv2.FONT_HERSHEY_SIMPLEX,
+                    0.5, (255, 255, 255), 1, )
+        if beat.x < 150 and beat.isPast == False:
+            beat.isPast = True
+            winsound.Beep(1000, 50)
+
 
     if len(beatList) > 5:
         beatList.pop(0)  # On garde que les 5 derniers
+
+    if len(mainBeatList) > 5:
+        try:
+            mainBeat.pop(0)  # On garde que les 5 derniers
+        except:
+            None
+
 
     for i in beatList:
         None
@@ -219,21 +256,20 @@ def beatDetection(hsv, image):
     #print(mainBeat)
 
     # a changé mais permet de pas bip en permanence
-    if 25 in mainBeat:
-        mainBeat.remove(25)
-    if 26 in mainBeat:
-        mainBeat.remove(26)
 
     for i in basicBeat:
         cv2.line(image, (int(i), 0), (int(i), 100), (0, 255, 0), 2)
-        if (-10 < i - 25 < 0):
-            winsound.Beep(700, 50)
+        if (-10 < i - 158 < 0):
+            #winsound.Beep(700, 50)
             on_beat_detected()
         """predicted = get_predicted_beat()
         if predicted and time.time() > predicted + 0.05:  # marge d'erreur
             print("Beat manquant, insertion virtuelle à :", predicted)
             winsound.Beep(1500, 50)
             detected_beats.append(predicted)  # On ajoute un beat simulé"""
+
+    for i in mainBeat:
+        cv2.line(image, (int(i), 0), (int(i), 100), (255, 255, 0), 2)
 
 
     # text = pytesseract.image_to_string(gray, config=custom_config)
@@ -290,7 +326,7 @@ while True:
     cv2.putText(image, f"({pos[0]}, {pos[1]})", (10, 30), cv2.FONT_HERSHEY_SIMPLEX,
                 1, (255, 255, 255), 2)
 
-    image2 = crop_region(image, partDetectionOne)
+    #image2 = crop_region(image, deck1Area)
 
     #
     cv2.imshow("windows", image)

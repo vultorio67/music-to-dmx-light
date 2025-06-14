@@ -1,2 +1,2 @@
 from .config import Config
-from .utils import getColorDB
+from .utils import getColorDB, getStandartColor
