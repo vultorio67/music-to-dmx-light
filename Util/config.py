@@ -7,33 +7,60 @@ from pathlib import Path
 #aims to load the config data
 
 class Config:
+    def __init__(self, config_file='config.yaml'):
+        self.config_file = config_file
 
-    def __init__(self):
         default_config = {
-            'window':
-                {
-                    'name': 'Rekordbox'
-                },
-            'dmx':
-                {
-                    'port': "COM3"
-                }
+            'window': {'name': 'Rekordbox'},
+            'dmx': {'port': "COM3"},
+            'fixtures': {
+                "left": [
+                  {
+                    "name": "lyre1",
+                    "adresse": 1,
+                    "type": "lyreSylvain"
+                  }
+                ],
+                "right": [
+                  {
+                    "name": "lyre2",
+                    "adresse": 12,
+                    "type": "lyreSylvain"
+                  }
+                ],
+                "top": [
+
+                ],
+                "bottom": [
+
+                ],
+                'other': [
+
+                ]
+              }
         }
 
-        # Vérifier si le fichier existe
-        if not os.path.exists('config.yaml'):
-            # Si le fichier n'existe pas, le créer avec les valeurs par défaut
-            with open('config.yaml', 'w') as file:
+        if not os.path.exists(self.config_file):
+            with open(self.config_file, 'w') as file:
                 yaml.dump(default_config, file, default_flow_style=False)
             print("Fichier config.yaml créé avec les valeurs par défaut.")
 
-        # Charger le fichier YAML
-        with open('config.yaml', 'r') as file:
+        with open(self.config_file, 'r') as file:
             config = yaml.safe_load(file)
 
-        # Accéder aux données
         self.windowName = config['window']['name']
         self.portDmx = config['dmx']['port']
+        self.fixtures_by_group = config.get('fixtures', {})
+
+    def get_fixtures(self, group=None):
+        """Retourne tous les fixtures ou ceux d'un groupe."""
+        if group:
+            return self.fixtures_by_group.get(group, [])
+        else:
+            all_fixtures = []
+            for group_fixtures in self.fixtures_by_group.values():
+                all_fixtures.extend(group_fixtures)
+            return all_fixtures
 
 class DMXConfigManager:
     def __init__(self, json_path="DmxConfig.json"):

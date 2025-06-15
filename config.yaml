@@ -1,0 +1,20 @@
+dmx:
+  port: COM3
+fixtures:
+  bottom: []
+  left:
+  - adresse: 1
+    name: lyre1
+    type: LyreSylvain
+  other: []
+  right:
+  - adresse: 12
+    name: lyre2
+    type: LyreSylvain
+  - adresse: 23
+    name: led_evan
+    type: MyLight
+
+  top: []
+window:
+  name: Rekordbox

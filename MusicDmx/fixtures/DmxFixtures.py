@@ -1,11 +1,11 @@
 import time
-from abc import abstractmethod
+from abc import abstractmethod, ABC
 
 from MusicDmx import DmxController
 from MusicDmx.DmxController import DMXController
 from Util import getStandartColor
 
-class DMXFixture:
+class DMXFixture(ABC):
     def __init__(self, name, start_address, dmx:DmxController):
         self.name = name
         self.start_address = start_address - 1
@@ -242,6 +242,10 @@ class LyreSylvain(DMXLightFixtures):
     def setTiltPos(self, tilt_angle:int):
         self.dmx.set_channel(self.start_address + self.parameter["movement"]["tilt"], tilt_angle)
 
+    def setPos(self, pan:int, tilt:int):
+        self.setPanPos(pan)
+        self.setTiltPos(tilt)
+
     def setAutoMode(self, mode_name:str):
         mode_dict = self.parameter["auto_sound"]["modes"]
         if mode_name not in mode_dict:
@@ -252,23 +256,27 @@ class LyreSylvain(DMXLightFixtures):
         self.dmx.set_channel(self.start_address + channel, valeur)
 
 
-dmx = DMXController("COM3")
+"""dmx = DMXController("COM3")
 dmx.start()
 
 testSy = LyreSylvain("test", 1, dmx)
 
-testEv = MyLight("test2", 12, dmx)
+testSy2 = LyreSylvain("test2", 12, dmx)
 
 testSy.enableLight(True)
-testEv.enableLight(True)
+testSy2.enableLight(True)
+testSy.setPos(255, 0)
+testSy2.setPos(255, 0)
 testSy.setColor("red")
-testEv.setColor("red")
+testSy2.setColor("red")
 time.sleep(3)
 testSy.setTiltPos(100)
+testSy2.setTiltPos(100)
 testSy.setColor("pink")
-testEv.setColor("pink")
+testSy2.setColor("pink")
 testSy.setGobo("open")
 time.sleep(2)
 testSy.setPanPos(100)
+testSy2.setPanPos(100)"""
 #testSy.setAutoMode("sound0")
 

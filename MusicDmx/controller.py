@@ -3,6 +3,7 @@ import threading
 import time
 from multiprocessing import Process, Queue
 import multiprocessing
+from typing import List
 
 import cv2
 
@@ -11,6 +12,8 @@ from .DmxController import DMXController
 #from .RekordboxWindow import RekordboxWindow
 from .RekordboxWindow import RekordbowWindow
 from .BeatManager import BeatManager
+from .fixtures.DmxFixtures import *
+
 
 class MainController:
     def __init__(self):
@@ -27,6 +30,8 @@ class MainController:
 
         self.dmxController = DMXController(self.config.portDmx)
 
+        self.univers_dmx = Univers_DMX(self.config, self.dmxController)
+
 
         # Threads
         self.threads = [
@@ -42,6 +47,11 @@ class MainController:
         for t in self.threads:
             t.start()
 
+        """for i in self.univers_dmx.left_element:
+            if isinstance(i, DMXLightFixtures):
+                i.enableLight(True)
+                i.setColor("red")
+        """
         self.video_process = multiprocessing.Process(target=self.rekordboxWindow.run, args=(self.window_queue,))
         self.video_process.start()
 
@@ -56,3 +66,67 @@ class MainController:
                 pass
         except KeyboardInterrupt:
             print("[MainController] Shutting down...")
+
+
+#define all the elements of the univers
+class Univers_DMX:
+    def __init__(self, config:Config, dmxController: DMXController):
+        self.right_element : List[DMXFixture] = []
+        self.left_element : List[DMXFixture] = []
+        self.top_element : List[DMXFixture] = []
+        self.bottom_element : List[DMXFixture] = []
+        self.other_element : List[DMXFixture] = []
+
+        self.cfg = config
+        self.dmxController = dmxController
+
+        #init directly from config
+        self.addFromConfig()
+
+    def addRightElement(self, add):
+        self.right_element.append(add)
+    def addLeftElement(self, add):
+        self.left_element.append(add)
+    def addTopElement(self, add):
+        self.top_element.append(add)
+    def addBottomElement(self, add):
+        self.bottom_element.append(add)
+    def addOtherElement(self, add):
+        self.other_element.append(add)
+
+    def addFromConfig(self):
+        for ft in self.cfg.get_fixtures("right"):
+            self.addRightElement(self.constructFixturesElement(ft))
+
+        for ft in self.cfg.get_fixtures("left"):
+            self.addLeftElement(self.constructFixturesElement(ft))
+
+        for ft in self.cfg.get_fixtures("top"):
+            self.addTopElement(self.constructFixturesElement(ft))
+
+        for ft in self.cfg.get_fixtures("bottom"):
+            self.addBottomElement(self.constructFixturesElement(ft))
+
+        for ft in self.cfg.get_fixtures("other"):
+            self.addOtherElement(self.constructFixturesElement(ft))
+
+
+    #add here new element identification
+    def constructFixturesElement(self, fixtures_config):
+
+        fixture_type = fixtures_config.get('type')
+
+        if fixture_type == "LyreSylvain":
+            return LyreSylvain(fixtures_config['name'], fixtures_config['adresse'], self.dmxController)
+
+        elif fixture_type == "MyLight":
+            return MyLight(fixtures_config['name'], fixtures_config['adresse'], self.dmxController)
+
+        else:
+            raise ValueError(
+                f"Type de fixture inconnu : {fixture_type} pour le projecteur '{fixtures_config.get('name', 'inconnu')}'")
+
+
+
+
+
