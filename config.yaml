@@ -1,5 +1,6 @@
 dmx:
   port: COM3
+center_pan: 181
 fixtures:
   bottom: []
   left:
@@ -14,7 +15,9 @@ fixtures:
   - adresse: 23
     name: led_evan
     type: MyLight
-
-  top: []
+  top:
+  - adresse: 23
+    name: my1
+    type: MyLight
 window:
   name: Rekordbox

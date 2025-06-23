@@ -13,6 +13,7 @@ class Config:
         default_config = {
             'window': {'name': 'Rekordbox'},
             'dmx': {'port': "COM3"},
+            'center_pan': 181,
             'fixtures': {
                 "left": [
                   {
@@ -51,6 +52,7 @@ class Config:
         self.windowName = config['window']['name']
         self.portDmx = config['dmx']['port']
         self.fixtures_by_group = config.get('fixtures', {})
+        self.centerPan = config["center_pan"]
 
     def get_fixtures(self, group=None):
         """Retourne tous les fixtures ou ceux d'un groupe."""
