@@ -33,3 +33,16 @@ def warm_color():
 def cool_color():
     cool_colors = ["blue", "green", "purple", "cyan"]
     return random.choice(cool_colors)
+
+
+def calculateSleepTime(controller) -> float:
+    median = float(controller.showGenerator.estimate_median_and_fill())
+    diff = controller.getCurrentTime() - controller.showGenerator.getLastBeatTime()
+
+    # si le beat est passé avant
+    if diff < median / 3:
+        sleepTime = median - diff
+    else:
+        sleepTime = 2 * median - diff
+
+    return sleepTime

@@ -141,7 +141,7 @@ def beatDetection(hsv, image):
     upper_bound = np.array([0, 0, 200])  # Max HSV
     maskGrayBar = cv2.inRange(hsv, lower_bound, upper_bound)
 
-    lower_bound = np.array([0, 0, 150])  # Min HSV
+    lower_bound = np.array([0, 0, 160])  # Min HSV
     upper_bound = np.array([0, 0, 255])  # Max HSV
     maskWhiteBar = cv2.inRange(hsv, lower_bound, upper_bound)
 
@@ -185,8 +185,8 @@ def beatDetection(hsv, image):
 
     basicBeat.sort()
 
-    if 150 in mainBeat:
-        mainBeat.remove(150)
+    if 160 in mainBeat:
+        mainBeat.remove(160)
 
     print(mainBeat)
 
@@ -209,9 +209,9 @@ def beatDetection(hsv, image):
         #print("beat", math.ceil(beat.x))
         cv2.putText(image, f"{beat.id} {beat.isPast}", (math.ceil(beat.x), 30), cv2.FONT_HERSHEY_SIMPLEX,
                     0.5, (255, 255, 255), 1, )
-        if beat.x < 150 and beat.isPast == False:
+        if beat.x < 160 and beat.isPast == False:
             beat.isPast = True
-            winsound.Beep(700, 50)
+            winsound.Beep(700, 10)
 
     for beat in mainBeat:
         detected = False
@@ -232,9 +232,9 @@ def beatDetection(hsv, image):
         #print("beat", math.ceil(beat.x))
         cv2.putText(image, f"{beat.id} {beat.isPast}", (math.ceil(beat.x), 30), cv2.FONT_HERSHEY_SIMPLEX,
                     0.5, (255, 255, 255), 1, )
-        if beat.x < 150 and beat.isPast == False:
+        if beat.x < 160 and beat.isPast == False:
             beat.isPast = True
-            winsound.Beep(1000, 50)
+            winsound.Beep(1000, 10)
 
 
     if len(beatList) > 5:
@@ -265,7 +265,7 @@ def beatDetection(hsv, image):
         """predicted = get_predicted_beat()
         if predicted and time.time() > predicted + 0.05:  # marge d'erreur
             print("Beat manquant, insertion virtuelle à :", predicted)
-            winsound.Beep(1500, 50)
+            winsound.Beep(1600, 50)
             detected_beats.append(predicted)  # On ajoute un beat simulé"""
 
     for i in mainBeat:
@@ -285,7 +285,7 @@ def beatDetection(hsv, image):
 
 
 def detectMaster(rekordBoxImage):
-    LOWER_ORANGE = np.array([5, 150, 150])  # Valeur minimale (en HSV)
+    LOWER_ORANGE = np.array([5, 160, 160])  # Valeur minimale (en HSV)
     UPPER_ORANGE = np.array([15, 255, 255])  # Valeur maximale (en HSV)
 
     deck1Image = crop_region(rekordBoxImage, master1Detect)
@@ -331,7 +331,7 @@ while True:
     #
     cv2.imshow("windows", image)
 
-    image = crop_region(image, deck1Area)
+    image = crop_region(image, useDeck)
 
     hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
 

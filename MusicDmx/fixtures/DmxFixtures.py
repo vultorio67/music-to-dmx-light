@@ -4,8 +4,8 @@ import time
 from abc import abstractmethod, ABC
 from typing import Callable, Optional
 
-from MusicDmx import DmxController
-from MusicDmx.DmxController import DMXController
+from MusicDmx import DmxSignalGenerator
+from MusicDmx.DmxSignalGenerator import DMXSignalGenerator
 from Util import getStandartColor, Config
 
 cfg = Config()
@@ -96,7 +96,7 @@ class GoboDMX:
         return self.nom
 
 class DMXFixture(ABC):
-    def __init__(self, name, start_address, dmx:DmxController):
+    def __init__(self, name, start_address, dmx):
         self.name = name
         self.start_address = start_address - 1
         self.dmx = dmx
@@ -111,7 +111,7 @@ class DMXFixture(ABC):
 
 
 class DMXLightFixtures(DMXFixture):
-    def __init__(self, name, start_adress, dmx:DmxController):
+    def __init__(self, name, start_adress, dmx):
         super().__init__(name, start_adress, dmx)
 
     @abstractmethod
@@ -132,7 +132,7 @@ class DMXLightFixtures(DMXFixture):
 
 class DMXLightRGBFixtures(DMXLightFixtures):
 
-    def __init__(self, name, start_adress, dmx: DmxController):
+    def __init__(self, name, start_adress, dmx):
         super().__init__(name, start_adress, dmx)
         self._fade_thread = None
         self._fade_lock = threading.Lock()
@@ -261,7 +261,7 @@ class DMXMovingFixture(DMXFixture):
 
 
 class MyLight(DMXLightRGBFixtures):
-    def __init__(self, name, start_address, dmx:DmxController):
+    def __init__(self, name, start_address, dmx):
         super().__init__(name, start_address, dmx)
         self.parameter = {
             "movement":
@@ -344,7 +344,7 @@ class MyLight(DMXLightRGBFixtures):
 #pan en degréé * 2
 # tilt : 125 c'es tdroit
 class LyreSylvain(DMXLightFixtures, DMXMovingFixture):
-    def __init__(self, name, start_address, dmx:DmxController):
+    def __init__(self, name, start_address, dmx):
         super().__init__(name, start_address, dmx)
         self.currentPan = 0
         self.currentTilt = 0
@@ -655,6 +655,25 @@ class RGBStripLed(DMXLightRGBFixtures):
         pass
 
     def set_param(self, param, value):
+        pass
+
+class UVLight(DMXLightFixtures):
+    def __init__(self):
+        self.parameter = {
+            "enable_light": 1,
+            "light": {
+                "u": 2,
+                "stroboscope_speed": 3,
+            }
+        }
+
+    def enableLight(self, isEnabled):
+        pass
+
+    def setStroboscopeSpeed(self, speed: int):
+        pass
+
+    def turnOffAllLight(self):
         pass
 
 

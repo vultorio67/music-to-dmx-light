@@ -2,29 +2,37 @@ import threading
 import time
 from abc import ABC, abstractmethod
 import random
+from random import randint
+
+import winsound
 
 import Util.utils
-from MusicDmx import DmxController
-from MusicDmx.Univers_DMX import Univers_DMX
+from MusicDmx import MainController
 from MusicDmx.fixtures.DmxFixtures import *
+from Util import utils
+from Util.utils import calculateSleepTime
 
+
+#MainController is the main point
 
 class Scene(ABC):
-    def __init__(self, univers_dmx: Univers_DMX):
-        self.univers_dmx = univers_dmx
+    def __init__(self, controller: MainController):
+        self.controller = controller
+        self.univers_dmx = controller.univers_dmx
         self.running = False
         self.id = -1
         self.loopTime = -1
+        self.sleepTime = -1
 
-    @abstractmethod
+    """@abstractmethod
     def activate(self):
-        pass
+        pass"""
 
-    def start(self):
+    def start(self, type):
         if self.running:
             return  # déjà en cours
         self.running = True
-        threading.Thread(target=self.activate).start()
+        threading.Thread(target=type).start()
 
     def stop(self, resetLight:bool=False):
         self.running = False
@@ -32,141 +40,148 @@ class Scene(ABC):
             self.univers_dmx.turnOffAllLight()
 
 
-class BeamIntro(Scene):
-    def __init__(self, univers_dmx:Univers_DMX):
-        super().__init__(univers_dmx)
-        self.id = 1
-    def activate(self):
-        u = self.univers_dmx
+class SceneBank(Scene):
+    def __init__(self, controller):
+        super().__init__(controller)
 
-        test = self.univers_dmx.right_element[0]
-        test2 = self.univers_dmx.left_element[0]
-        test3 = self.univers_dmx.top_element[0]
-        print(type(test2))
-        print(isinstance(test, LyreSylvain))
+    #pour faire des testes de scènes
+    def test(self):
+        def run():
 
-        if isinstance(test, LyreSylvain):
-            print("ok")
-            test.enableLight(True)
-            test.setPos(20, 30)
-            test.setColor("pink")
-
-
-
-
-class BlackScene(Scene):
-
-    def __init__(self, univers_dmx:Univers_DMX, home_position=False):
-        super().__init__(univers_dmx)
-        self.id = 1
-        self.home_position = home_position
-
-    def activate(self):
-        for fixture in self.univers_dmx.getAllFixtures():
-            if isinstance(fixture, DMXLightFixtures):
-                fixture.turnOffAllLight()
-            if isinstance(fixture, DMXMovingFixture) and self.home_position == True:
-                fixture.goToHomePosition()
-        self.stop()
-
-class WhiteScene(Scene):
-    def __init__(self, univers_dmx:Univers_DMX):
-        super().__init__(univers_dmx)
-        self.id = 2
-
-    def activate(self):
-        for fixture in self.univers_dmx.getAllFixtures():
-            if isinstance(fixture, DMXLightFixtures):
-                fixture.enableLight(True)
-                fixture.setColor("white")
-        self.stop()
-
-class ColorScene(Scene):
-    def __init__(self, univers_dmx:Univers_DMX, color):
-        super().__init__(univers_dmx)
-        self.id = 3
-        self.color = color
-
-    def activate(self):
-        for fixture in self.univers_dmx.getAllFixtures():
-            if isinstance(fixture, DMXLightFixtures):
-                fixture.enableLight(True)
-                fixture.setColor(self.color)
-        self.stop()
-
-class BasicDisco(Scene):
-    def __init__(self, univers_dmx:Univers_DMX):
-        super().__init__(univers_dmx)
-        self.id = 3
-        self.loopTime = 4
-
-    def activate(self):
-
-        while self.running:
-
-            color = Util.utils.random_color()
             ml = self.univers_dmx.getMyLight()
-            ml.setPartyLight(255)
-            ml.setPartyLightRotationSpeed(60)
-            ml.enableLight(True)
 
-            all_lyres = self.univers_dmx.getAllLyre()
-            all_lyres.setColor(color)
-            all_lyres.enableLight(True)
-            all_lyres.centerCircle(40, 30, 2, 2)
+            while True:
+                color = utils.random_color()
 
-            # --- Effet stroboscope aléatoire pendant 4 secondes ---
-            strobe_start = time.time()
-            while time.time() - strobe_start < 4:
-                if random.random() < 0.3:  # 30% de chance de strobe
-                    speed = random.randint(50, 200)
-                    all_lyres.setStroboscopeSpeed(speed)
-                else:
-                    all_lyres.setStroboscopeSpeed(0)
+                sleepTime = calculateSleepTime(self.controller)
+                #winsound.Beep(1000, 10)
 
-                time.sleep(0.5)  # met à jour toutes les 200 ms
+                ml.enableLight(True)
+                ml.setColor(color)
+                time.sleep(sleepTime/4)
+                #sleepTime = calculateSleepTime(self.controller)
+                ml.enableLight(False)
 
-            # On s'assure que le strobe est coupé après les 4 sec
-            all_lyres.setStroboscopeSpeed(0)
+                time.sleep(sleepTime/4)
 
+                ml.enableLight(True)
+                ml.setColor(color)
+                time.sleep(sleepTime / 4)
+                # sleepTime = calculateSleepTime(self.controller)
+                ml.enableLight(False)
 
-class LittleDancing(Scene):
-    def __init__(self, univers_dmx: Univers_DMX):
-        super().__init__(univers_dmx)
-        self.id = 4
+                time.sleep(sleepTime / 4)
 
-    def activate(self):
-        while self.running:
-            color = Util.utils.random_color()
-            ml = self.univers_dmx.getMyLight()
-            ml.setRotation1Light(255)
-            ml.setRotationSpeed(60)
-            ml.enableLight(True)
-            self.univers_dmx.getAllLyre().setColor(color)
-            self.univers_dmx.getAllLyre().enableLight(True)
-            self.univers_dmx.getAllLyre().centerCircle(40, 30, 3, 2)
-            time.sleep()
-            time.sleep(6)
+        self.start(run)
 
-class ExtremStrope(Scene):
-    def __init__(self, univers_dmx: Univers_DMX, color:str):
-        super().__init__(univers_dmx)
-        self.id = 5
-        self.color = color
+    def beam_intro(self):
+        def run():
+            el = self.univers_dmx.right_element[0]
+            if isinstance(el, LyreSylvain):
+                el.enableLight(True)
+                el.setPos(20, 30)
+                el.setColor("pink")
+            self.stop()
+        self.start(run)
 
-    def activate(self):
-        while self.running:
-            ml = self.univers_dmx.getMyLight()
-            ml.setColor(self.color)
-            ml.enableLight(True)
-            self.univers_dmx.getAllLyre().setColor(self.color)
-            self.univers_dmx.getAllLyre().enableLight(True)
-            self.univers_dmx.getAllLyre().ellipse(cfg.centerPan, 100, 10, 90, 2)
-            self.univers_dmx.strobAllLight(150)
-            time.sleep(2)
+    #
+    def black(self, home_position=False):
+        def run():
+            for fixture in self.univers_dmx.getAllFixtures():
+                if isinstance(fixture, DMXLightFixtures):
+                    fixture.turnOffAllLight()
+                if isinstance(fixture, DMXMovingFixture) and home_position:
+                    fixture.goToHomePosition()
+            self.stop()
+        self.start(run)
+
+    def white(self):
+        def run():
+            for fixture in self.univers_dmx.getAllFixtures():
+                if isinstance(fixture, DMXLightFixtures):
+                    fixture.enableLight(True)
+                    fixture.setColor("white")
+            self.stop()
+        self.start(run)
 
 
-class WarmScene(Scene):
+    def color(self, color):
+        def run():
+            for fixture in self.univers_dmx.getAllFixtures():
+                if isinstance(fixture, DMXLightFixtures):
+                    fixture.enableLight(True)
+                    fixture.setColor(color)
+            self.stop()
+        self.start(run)
+
+    def basic_disco(self):
+        def run():
+            while self.running:
+                color = utils.random_color()
+                ml = self.univers_dmx.getMyLight()
+                ml.setPartyLight(255)
+                ml.setPartyLightRotationSpeed(60)
+                ml.enableLight(True)
+
+                lyres = self.univers_dmx.getAllLyre()
+                lyres.setColor(color)
+                lyres.enableLight(True)
+                lyres.centerCircle(40, 30, 2, 2)
+
+                strobe_start = time.time()
+                while time.time() - strobe_start < 4:
+                    if random.random() < 0.3:
+                        lyres.setStroboscopeSpeed(random.randint(50, 200))
+                    else:
+                        lyres.setStroboscopeSpeed(0)
+                    time.sleep(0.5)
+                lyres.setStroboscopeSpeed(0)
+        self.start(run)
+
+    def little_dancing(self):
+        def run():
+            while self.running:
+                color = utils.random_color()
+                ml = self.univers_dmx.getMyLight()
+                ml.setRotation1Light(255)
+                ml.setRotationSpeed(60)
+                ml.enableLight(True)
+
+                lyres = self.univers_dmx.getAllLyre()
+                lyres.setColor(color)
+                lyres.enableLight(True)
+                lyres.centerCircle(40, 30, 3, 2)
+                time.sleep(6)
+        self.start(run)
+
+    def extrem_strobe(self, color):
+        def run():
+            while self.running:
+                rd = random.randint(1, 20)
+                rd2 = random.randint(20, 70)
+                ml = self.univers_dmx.getMyLight()
+                ml.setColor(color)
+                ml.enableLight(True)
+
+                lyres = self.univers_dmx.getAllLyre()
+                lyres.setColor(color)
+                lyres.enableLight(True)
+                lyres.ellipse(cfg.centerPan, 70, rd, rd2, 2)
+                self.univers_dmx.strobAllLight(170)
+                time.sleep(2)
+        self.start(run)
+
+
+
+
+############ Up scene #############
+#                                 #
+###################################
+
+
+
+
+"""class WarmScene(Scene):
     def __init__(self, univers_dmx: Univers_DMX, intensity: int):
         super().__init__(univers_dmx)
         self.intensity = intensity
@@ -215,4 +230,4 @@ class WarmScene(Scene):
                     fixture.centerEllipse(center_tilt=90, radius_pan=20, radius_tilt=10,
                                           duration=duration, loops=movement_loops)
             except Exception as e:
-                print(f"Erreur sur fixture {fixture}: {e}")
+                print(f"Erreur sur fixture {fixture}: {e}")"""

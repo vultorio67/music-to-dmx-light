@@ -3,21 +3,23 @@ import threading
 import time
 from typing import List, Callable, Optional
 
-from MusicDmx.DmxController import DMXController
+from MusicDmx.DmxSignalGenerator import DMXSignalGenerator
 from MusicDmx.fixtures.DmxFixtures import DMXFixture, LyreSylvain, MyLight, CouleurDMX, DMXLightFixtures, LyreGroup
 from Util import Config
 
 
 class Univers_DMX:
-    def __init__(self, config:Config, dmxController: DMXController):
+    def __init__(self, controller):
         self.right_element : List[DMXFixture] = []
         self.left_element : List[DMXFixture] = []
         self.top_element : List[DMXFixture] = []
         self.bottom_element : List[DMXFixture] = []
         self.other_element : List[DMXFixture] = []
 
-        self.cfg = config
-        self.dmxController = dmxController
+        self.mainController = controller
+
+        self.cfg = self.mainController.config
+        self.dmxSignalGenerator = self.mainController.dmxSignalGenerator
 
         #init directly from config
         self.addFromConfig()
@@ -59,14 +61,15 @@ class Univers_DMX:
         fixture_type = fixtures_config.get('type')
 
         if fixture_type == "LyreSylvain":
-            return LyreSylvain(fixtures_config['name'], fixtures_config['adresse'], self.dmxController)
+            return LyreSylvain(fixtures_config['name'], fixtures_config['adresse'], self.dmxSignalGenerator)
 
         elif fixture_type == "MyLight":
-            return MyLight(fixtures_config['name'], fixtures_config['adresse'], self.dmxController)
+            return MyLight(fixtures_config['name'], fixtures_config['adresse'], self.dmxSignalGenerator)
 
         else:
             raise ValueError(
                 f"Type de fixture inconnu : {fixture_type} pour le projecteur '{fixtures_config.get('name', 'inconnu')}'")
+
 
     def getAllFixtures(self) -> DMXFixture:
         allFixtures: List[DMXFixture] = []
@@ -101,6 +104,11 @@ class Univers_DMX:
             if isinstance(ft, DMXLightFixtures):
                 allFixtures.append(ft)
         return allFixtures
+
+    def enableAllLight(self, enable=True):
+        for ft in self.getAllLightFixtures():
+            if isinstance(ft, DMXLightFixtures):
+                ft.enableLight(enable)
 
 
     def getRightFixtures(self):
@@ -147,6 +155,7 @@ class Univers_DMX:
         for i in self.getAllFixtures():
             if isinstance(i,LyreSylvain):
                 i.mirror_slave = []
+
     def getAllLyre(self) -> LyreGroup:
         lyres = [f for f in self.getAllFixtures() if isinstance(f, LyreSylvain)]  # ou LyreSylvain, etc.
         return LyreGroup(lyres)

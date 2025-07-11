@@ -2,8 +2,11 @@ import serial
 import threading
 import time
 
-class DMXController:
-    def __init__(self, port='COM3', baudrate=250000, channels=512, fps=30):
+class DMXSignalGenerator:
+    def __init__(self, controller, port='COM3', baudrate=250000, channels=512, fps=30):
+
+        self.mainController = controller
+
         self.port = port
         self.baudrate = baudrate
         self.channels = channels

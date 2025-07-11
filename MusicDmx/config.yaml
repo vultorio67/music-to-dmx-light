@@ -1,0 +1,17 @@
+center_pan: 181
+dmx:
+  port: COM3
+fixtures:
+  bottom: []
+  left:
+  - adresse: 1
+    name: lyre1
+    type: lyreSylvain
+  other: []
+  right:
+  - adresse: 12
+    name: lyre2
+    type: lyreSylvain
+  top: []
+window:
+  name: Rekordbox

@@ -1,20 +1,34 @@
 import time
+from abc import ABC
 from multiprocessing import Queue
 
 import cv2
 import winsound
 import numpy as np
 
-from MusicDmx.DmxController import DMXController
+from MusicDmx.DmxSignalGenerator import DMXSignalGenerator
 
-class Beat:
-    def __init__(self, id, x):
+class Beat(ABC):
+    def __init__(self, id, x, isDetected=False):
         self.id = id
         self.x = x
-        self.isPast = False
+        self.isDetected = isDetected
+        self.detectedTime = -1
 
-    def __str__(self):
-        return f"id: {self.id}, x: {self.x}, isPast: {self.isPast}"
+
+
+class BasicBeat(Beat):
+
+    def __init__(self, id, x, isDetected=False):
+        super().__init__(id, x, isDetected)
+
+
+class MainBeat(Beat):
+
+    def __init__(self, id, x, isDetected=False):
+        super().__init__(id, x, isDetected)
+
+
 
 
 class BeatManager:
@@ -39,7 +53,7 @@ class BeatManager:
 
     def run(self, queue : Queue):
 
-        dmx = DMXController("COM3")
+        dmx = DMXSignalGenerator("COM3")
         dmx.start()
 
         # Test : on monte progressivement le canal 1
@@ -79,11 +93,11 @@ class BeatManager:
                     if abs(i.x - beat) < 40:
                         i.x = beat
                         detected = True
+                        i.isDetected = True
 
                 if detected == False:
                     try:
                         newBeat = Beat(beatList[-1].id + 1, beat)
-                        print("création")
                     except:
                         newBeat = Beat(0, beat)
                     beatList.append(newBeat)
@@ -104,7 +118,6 @@ class BeatManager:
                 if detected == False:
                     try:
                         newBeat = Beat(mainBeatList[-1].id + 1, beat)
-                        print("création")
                     except:
                         newBeat = Beat(0, beat)
                     mainBeatList.append(newBeat)

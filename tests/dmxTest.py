@@ -1,8 +1,8 @@
 import time
 
-from MusicDmx.DmxController import DMXController
+from MusicDmx.DmxSignalGenerator import DMXSignalGenerator
 
-dmx = DMXController("COM3")
+dmx = DMXSignalGenerator("COM3")
 dmx.start()
 
 # Test : on monte progressivement le canal 1

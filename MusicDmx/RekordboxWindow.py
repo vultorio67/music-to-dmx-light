@@ -1,8 +1,9 @@
 import math
 
+import psutil
 import winsound
 
-from MusicDmx.BeatManager import Beat
+from MusicDmx.BeatManager import MainBeat, BeatManager, BasicBeat
 from Util import Config
 from Util import getColorDB
 
@@ -51,9 +52,13 @@ class RekordbowWindow:
 
         self.color_db = getColorDB()
 
+        self.beat_bar_position = 163
+
+        self.beatObjectList = []
+
         #à changer pour mettre dans config
         self.deck1Area = SquareSelection(810, 157, 300, 70)
-        self.deck2Area = SquareSelection(810, 230, 300, 70)
+        self.deck2Area = SquareSelection(810, 227, 300, 70)
 
         self.master1Detect = SquareSelection(900, 325, 50, 15)
         self.master2Detect = SquareSelection(1850, 325, 50, 15)
@@ -114,7 +119,7 @@ class RekordbowWindow:
         return self.crop_region(self.capture_window(self.hwnd), deckArea)
 
     def detectMaster(self, rekordBoxImage):
-        LOWER_ORANGE = np.array([5, 150, 150])  # Valeur minimale (en HSV)
+        LOWER_ORANGE = np.array([5, 158, 158])  # Valeur minimale (en HSV)
         UPPER_ORANGE = np.array([15, 255, 255])  # Valeur maximale (en HSV)
 
         deck1Image = self.crop_region(rekordBoxImage, self.master1Detect)
@@ -182,14 +187,14 @@ class RekordbowWindow:
 
         return moments
 
-    def beatAnalisys(self):
+    def beatAnalisys(self,  queue : Queue):
         hsv = cv2.cvtColor(self.deckImage, cv2.COLOR_BGR2HSV)
 
         lower_bound = np.array([0, 0, 10])  # Min HSV
         upper_bound = np.array([0, 0, 200])  # Max HSV
         maskGrayBar = cv2.inRange(hsv, lower_bound, upper_bound)
 
-        lower_bound = np.array([0, 0, 150])  # Min HSV
+        lower_bound = np.array([0, 0, 158])  # Min HSV
         upper_bound = np.array([0, 0, 255])  # Max HSV
         maskWhiteBar = cv2.inRange(hsv, lower_bound, upper_bound)
 
@@ -230,55 +235,70 @@ class RekordbowWindow:
         self.basicBeat.sort()
         self.mainBeat.sort()
 
-        if 150 in self.mainBeat:
-            self.mainBeat.remove(150)
+        if self.beat_bar_position in self.mainBeat:
+            self.mainBeat.remove(self.beat_bar_position)
 
 
         for beat in self.basicBeat:
             detected = False
             for i in self.beatList:
-                if abs(i.x - beat) < 40:
+                #distante minimal entre deux beat
+                if abs(i.x - beat) < 40 :
                     i.x = beat
                     detected = True
 
-            if detected == False:
+            if detected == False and beat > (self.beat_bar_position-20):
                 try:
-                    newBeat = Beat(self.beatList[-1].id + 1, beat)
-                    print("création")
+                    newBeat = BasicBeat(self.beatList[-1].id + 1, beat)
                 except:
-                    newBeat = Beat(0, beat)
+                    newBeat = BasicBeat(0, beat)
                 self.beatList.append(newBeat)
 
         for beat in self.beatList:
             # print("beat", math.ceil(beat.x))
-            cv2.putText(self.deckImage, f"{beat.id} {beat.isPast}", (math.ceil(beat.x), 30), cv2.FONT_HERSHEY_SIMPLEX,
-                        0.5, (255, 255, 255), 1, )
-            if beat.x < 150 and beat.isPast == False:
-                beat.isPast = True
-                winsound.Beep(700, 30)
+            if not beat.isDetected:
+                cv2.putText(self.deckImage, f"{beat.id} {beat.isDetected}", (math.ceil(beat.x), 30), cv2.FONT_HERSHEY_SIMPLEX,
+                            0.5, (255, 255, 255), 1, )
+            if beat.x < self.beat_bar_position and beat.isDetected == False:
+                beat.isDetected = True
+                #winsound.Beep(700, 3)
+                beat.detectedTime = time.time() - self.firstReferenceTime
+                self.beatObjectList.append(beat)
+
+                if len(self.beatObjectList) > 15:
+                    self.beatObjectList.pop(0)
+
+                queue.put(self.beatObjectList)
 
         for beat in self.mainBeat:
             detected = False
             for i in self.mainBeatList:
-                if abs(i.x - beat) < 60:
+                if abs(i.x - beat) < 80:
                     i.x = beat
                     detected = True
 
-            if detected == False:
+            if detected == False and beat > (self.beat_bar_position-20):
                 try:
-                    newBeat = Beat(self.mainBeatList[-1].id + 1, beat)
-                    print("création")
+                    newBeat = MainBeat(self.mainBeatList[-1].id + 1, beat)
                 except:
-                    newBeat = Beat(0, beat)
+                    newBeat = MainBeat(0, beat)
                 self.mainBeatList.append(newBeat)
 
         for beat in self.mainBeatList:
             # print("beat", math.ceil(beat.x))
-            cv2.putText(self.deckImage, f"{beat.id} {beat.isPast}", (math.ceil(beat.x), 30), cv2.FONT_HERSHEY_SIMPLEX,
-                        0.5, (255, 100, 255), 1, )
-            if beat.x < 150 and beat.isPast == False:
-                beat.isPast = True
-                winsound.Beep(1000, 30)
+            if not beat.isDetected:
+                cv2.putText(self.deckImage, f"{beat.id} {beat.isDetected}", (math.ceil(beat.x), 30), cv2.FONT_HERSHEY_SIMPLEX,
+                            0.5, (255, 100, 255), 1, )
+            if beat.x < self.beat_bar_position and beat.isDetected == False:
+                beat.isDetected = True
+                #winsound.Beep(1000, 3)
+                beat.detectedTime = time.time() - self.firstReferenceTime
+                self.beatObjectList.append(beat)
+
+                if len(self.beatObjectList) > 10:
+                    self.beatObjectList.pop(0)
+
+                queue.put(self.beatObjectList)
         if len(self.beatList) > 5:
             self.beatList.pop(0)  # On garde que les 5 derniers
 
@@ -293,7 +313,7 @@ class RekordbowWindow:
     def getTimeLineActivePosition(self):
         hsv = cv2.cvtColor(self.deckTimeLineImage, cv2.COLOR_BGR2HSV)
 
-        lower_bound = np.array([0, 0, 150])  # Min HSV
+        lower_bound = np.array([0, 0, 158])  # Min HSV
         upper_bound = np.array([0, 0, 255])  # Max HSV
         maskWhiteBar = cv2.inRange(hsv, lower_bound, upper_bound)
 
@@ -328,64 +348,79 @@ class RekordbowWindow:
 
 
 
-    def run(self, queue : Queue):
+    def run(self, queue : Queue, firstReferenceTime):
+        try:
+            print("Process démarré")
+            self.beatList = []
+            self.mainBeatList = []
 
-        self.beatList = []
-        self.mainBeatList = []
+            last_action_time = time.time()
 
-        last_action_time = time.time()
+            current_master = self.master
 
-        current_master = self.master
+            self.firstReferenceTime = firstReferenceTime
 
-        while True:
-            #print(get_croped_deck(deck1Area))
-            #window_queue.put(get_croped_deck(deck1Area))
+            p = psutil.Process()
+            p.nice(psutil.HIGH_PRIORITY_CLASS)
 
-            #permet de détecter quell est le master avec un pas de tps
-            current_time = time.time()
-            if current_time - last_action_time >= 0.2:
-                self.master = self.detectMaster(self.capture_window(self.hwnd))
-                #print(self.getCurrentActiveMoment())
-                last_action_time = current_time
+            while True:
+                # print(get_croped_deck(deck1Area))
+                # window_queue.put(get_croped_deck(deck1Area))
 
-            if current_master != self.master:
-                print("master change, refresh the music structure")
-                self.masterMusicStructure = self.getDeckMusicStructure(self.master)
-                current_master = self.master
+                # permet de détecter quell est le master avec un pas de tp
 
-            if(self.master == 1):
-                self.deckImage = self.get_croped_deck(self.deck1Area)
-                self.deckTimeLineImage = self.get_croped_deck(self.timeLine1)
-                self.partDetectionImage = self.get_croped_deck(self.partDetection1)
-            else :
-                self.deckImage = self.get_croped_deck(self.deck2Area)
-                self.deckTimeLineImage = self.get_croped_deck(self.timeLine2)
-                self.partDetectionImage = self.get_croped_deck(self.partDetection2)
+                current_time = time.time()
+                if current_time - last_action_time >= 0.2:
+                    self.master = self.detectMaster(self.capture_window(self.hwnd))
+                    # print(self.getCurrentActiveMoment())
+                    last_action_time = current_time
+
+                if current_master != self.master:
+                    print("master change, refresh the music structure")
+                    self.masterMusicStructure = self.getDeckMusicStructure(self.master)
+                    current_master = self.master
+
+                if (self.master == 1):
+                    self.deckImage = self.get_croped_deck(self.deck1Area)
+                    self.deckTimeLineImage = self.get_croped_deck(self.timeLine1)
+                    self.partDetectionImage = self.get_croped_deck(self.partDetection1)
+                else:
+                    self.deckImage = self.get_croped_deck(self.deck2Area)
+                    self.deckTimeLineImage = self.get_croped_deck(self.timeLine2)
+                    self.partDetectionImage = self.get_croped_deck(self.partDetection2)
+
+                # print(valid_contours)
+
+                self.beatAnalisys(queue)
+
+                all = [self.basicBeat, self.mainBeat]
+                # queue.put(all)
+
+                if 158 in self.mainBeat:
+                    self.mainBeat.remove(158)
+
+                if 159 in self.mainBeat:
+                    self.mainBeat.remove(159)
+
+                # print("main",self.mainBeat)
+
+                for i in self.basicBeat:
+                    cv2.line(self.deckImage, (int(i), 0), (int(i), 100), (0, 255, 0), 1)
+
+                for i in self.mainBeat:
+                    cv2.line(self.deckImage, (int(i), 0), (int(i), 100), (255, 0, 255), 1)
+
+                cv2.line(self.deckImage, (self.beat_bar_position, 0), (self.beat_bar_position, 100), (255, 255, 255), 2)
+
+                cv2.imshow("test", self.deckImage)
+
+                if cv2.waitKey(1) & 0xFF == ord('q'):
+                    break
+            # Ton code ici...
+        except Exception as e:
+            import traceback
+            print("Exception dans le processus :")
+            traceback.print_exc()
 
 
-            #print(valid_contours)
-
-            self.beatAnalisys()
-
-            all = [self.basicBeat, self.mainBeat]
-            #queue.put(all)
-
-            if 150 in self.mainBeat:
-                self.mainBeat.remove(150)
-
-            if 159 in self.mainBeat:
-                self.mainBeat.remove(159)
-            #print("main",self.mainBeat)
-
-            for i in self.basicBeat:
-                cv2.line(self.deckImage, (int(i), 0), (int(i), 100), (0, 255, 0), 2)
-
-            for i in self.mainBeat:
-                cv2.line(self.deckImage, (int(i), 0), (int(i), 100), (255, 0, 255), 2)
-
-            cv2.imshow("test", self.deckImage)
-
-
-            if cv2.waitKey(1) & 0xFF == ord('q'):
-                break
 
