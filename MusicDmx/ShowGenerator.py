@@ -2,7 +2,7 @@ import threading
 import time
 
 from MusicDmx.BeatManager import BasicBeat, MainBeat, Beat
-from MusicDmx.fixtures.DmxFixtures import DMXLightFixtures
+from MusicDmx.fixtures.DmxFixtures import DMXLightFixtures, CouleurDMX
 import statistics
 
 
@@ -33,7 +33,10 @@ class ShowGenerator:
             time.sleep(0.01)
             print("starting the scene")
 
-        self.mainController.sceneBank.test()
+        a = self.mainController.sceneBank.basic_disco()
+        time.sleep(2)
+        a.stop()
+
 
         while True:
             currentTime = time.time() - self.mainController.firstReferenceTime

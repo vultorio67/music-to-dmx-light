@@ -460,9 +460,9 @@ class LyreSylvain(DMXLightFixtures, DMXMovingFixture):
 
     def _notify_slaves(self):
         for slave in self.mirror_slave:
-            mirrored_pan = int(-(self.currentPan-cfg.centerPan) + cfg.centerPan)
-            print("pos", mirrored_pan)
-            slave.setPos(mirrored_pan, self.currentTilt)
+            mirrored_pan = int(-self.currentPan+ 2 * cfg.centerPan)
+            if 0 < mirrored_pan < 255:
+                slave.setPos(mirrored_pan, self.currentTilt)
 
     def goToHomePosition(self):
         self.setPos(cfg.centerPan, 0)
@@ -480,6 +480,67 @@ class LyreSylvain(DMXLightFixtures, DMXMovingFixture):
                 pan += pan_step
                 tilt += tilt_step
                 self.setPos(int(pan), int(tilt))
+                time.sleep(duration / steps)
+
+        self.start_motion(motion)
+
+    def move_to_arc(self, pan_target, tilt_target, duration=1.0, radius = 1, steps=40):
+        def motion():
+            x0, y0 = self.currentPan, self.currentTilt
+            x1, y1 = pan_target, tilt_target
+
+            dx = x1 - x0
+            dy = y1 - y0
+            dist = math.hypot(dx, dy)
+
+            if dist == 0 or radius == 0:
+                # Pas de déplacement ou rayon nul, on fait un mouvement direct
+                pan_step = dx / steps
+                tilt_step = dy / steps
+                for _ in range(steps):
+                    if not self._running:
+                        break
+                    x0 += pan_step
+                    y0 += tilt_step
+                    self.setPos(int(x0), int(y0))
+                    time.sleep(duration / steps)
+                return
+
+            # Calcul de l'angle entre départ et arrivée
+            angle = math.atan2(dy, dx)
+
+            # Calcul du centre du cercle (orthogonal au vecteur déplacement)
+            mx = (x0 + x1) / 2
+            my = (y0 + y1) / 2
+
+            # vecteur orthogonal
+            ox = -dy / dist
+            oy = dx / dist
+
+            # Il y a deux centres possibles (à gauche ou à droite du segment)
+            cx = mx + ox * math.sqrt(max(radius ** 2 - (dist / 2) ** 2, 0))
+            cy = my + oy * math.sqrt(max(radius ** 2 - (dist / 2) ** 2, 0))
+
+            # Angle de départ et d’arrivée depuis le centre
+            start_angle = math.atan2(y0 - cy, x0 - cx)
+            end_angle = math.atan2(y1 - cy, x1 - cx)
+
+            # Détermination du sens du mouvement (horaire ou anti-horaire)
+            # Pour forcer le sens, on peut ajouter un paramètre optionnel
+            delta_angle = end_angle - start_angle
+            if delta_angle < -math.pi:
+                delta_angle += 2 * math.pi
+            elif delta_angle > math.pi:
+                delta_angle -= 2 * math.pi
+
+            for i in range(steps + 1):
+                if not self._running:
+                    break
+                t = i / steps
+                theta = start_angle + delta_angle * t
+                x = cx + radius * math.cos(theta)
+                y = cy + radius * math.sin(theta)
+                self.setPos(int(x), int(y))
                 time.sleep(duration / steps)
 
         self.start_motion(motion)
@@ -681,6 +742,7 @@ class LyreGroup:
     def __init__(self, lyres):
         self.lyres = lyres
 
+    # comme la méhode existe pas on l'applique à l'ensemble des lyres du groupe
     def __getattr__(self, attr):
         def group_method(*args, **kwargs):
             for lyre in self.lyres:

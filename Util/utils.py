@@ -1,5 +1,6 @@
 import json
 import random
+import time
 
 
 def getColorDB():
@@ -34,6 +35,29 @@ def cool_color():
     cool_colors = ["blue", "green", "purple", "cyan"]
     return random.choice(cool_colors)
 
+def randomGobo():
+    gobo =  [
+    "open",
+    "gobo1",
+    "gobo2",
+    "gobo3",
+    "gobo4",
+    "gobo5",
+    "gobo6",
+    "gobo7",
+    "gobo1_shake",
+    "gobo2_shake",
+    "gobo3_shake",
+    "gobo4_shake",
+    "gobo5_shake",
+    "gobo6_shake",
+    "gobo7_shake",
+    "gobo_rainbow",
+    "gobo_auto_scroll"
+    ]
+
+    return random.choice(gobo)
+
 
 def calculateSleepTime(controller) -> float:
     median = float(controller.showGenerator.estimate_median_and_fill())
@@ -46,3 +70,8 @@ def calculateSleepTime(controller) -> float:
         sleepTime = 2 * median - diff
 
     return sleepTime
+
+def sleepBeatTime(controller, times:int):
+    for i in range(times):
+        sleepTime = calculateSleepTime(controller)
+        time.sleep(sleepTime)

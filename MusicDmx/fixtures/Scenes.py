@@ -23,6 +23,7 @@ class Scene(ABC):
         self.id = -1
         self.loopTime = -1
         self.sleepTime = -1
+        self.type = None
 
     """@abstractmethod
     def activate(self):
@@ -32,10 +33,13 @@ class Scene(ABC):
         if self.running:
             return  # déjà en cours
         self.running = True
+        self.type = type
         threading.Thread(target=type).start()
+        return self
 
     def stop(self, resetLight:bool=False):
         self.running = False
+        threading.Thread(target=self.type).join()
         if resetLight:
             self.univers_dmx.turnOffAllLight()
 
@@ -43,12 +47,11 @@ class Scene(ABC):
 class SceneBank(Scene):
     def __init__(self, controller):
         super().__init__(controller)
+        self.ml = self.univers_dmx.getMyLight()
 
     #pour faire des testes de scènes
     def test(self):
         def run():
-
-            ml = self.univers_dmx.getMyLight()
 
             while True:
                 color = utils.random_color()
@@ -56,21 +59,15 @@ class SceneBank(Scene):
                 sleepTime = calculateSleepTime(self.controller)
                 #winsound.Beep(1000, 10)
 
-                ml.enableLight(True)
-                ml.setColor(color)
-                time.sleep(sleepTime/4)
+                self.ml.enableLight(True)
+                self.ml.setColor(color)
+                time.sleep(sleepTime)
                 #sleepTime = calculateSleepTime(self.controller)
-                ml.enableLight(False)
+                self.ml.enableLight(False)
+                sleepTime = calculateSleepTime(self.controller)
 
-                time.sleep(sleepTime/4)
+                time.sleep(sleepTime)
 
-                ml.enableLight(True)
-                ml.setColor(color)
-                time.sleep(sleepTime / 4)
-                # sleepTime = calculateSleepTime(self.controller)
-                ml.enableLight(False)
-
-                time.sleep(sleepTime / 4)
 
         self.start(run)
 
@@ -118,10 +115,9 @@ class SceneBank(Scene):
         def run():
             while self.running:
                 color = utils.random_color()
-                ml = self.univers_dmx.getMyLight()
-                ml.setPartyLight(255)
-                ml.setPartyLightRotationSpeed(60)
-                ml.enableLight(True)
+                self.ml.setPartyLight(255)
+                self.ml.setPartyLightRotationSpeed(60)
+                self.ml.enableLight(True)
 
                 lyres = self.univers_dmx.getAllLyre()
                 lyres.setColor(color)
@@ -142,10 +138,9 @@ class SceneBank(Scene):
         def run():
             while self.running:
                 color = utils.random_color()
-                ml = self.univers_dmx.getMyLight()
-                ml.setRotation1Light(255)
-                ml.setRotationSpeed(60)
-                ml.enableLight(True)
+                self.ml.setRotation1Light(255)
+                self.ml.setRotationSpeed(60)
+                self.ml.enableLight(True)
 
                 lyres = self.univers_dmx.getAllLyre()
                 lyres.setColor(color)
@@ -159,9 +154,8 @@ class SceneBank(Scene):
             while self.running:
                 rd = random.randint(1, 20)
                 rd2 = random.randint(20, 70)
-                ml = self.univers_dmx.getMyLight()
-                ml.setColor(color)
-                ml.enableLight(True)
+                self.ml.setColor(color)
+                self.ml.enableLight(True)
 
                 lyres = self.univers_dmx.getAllLyre()
                 lyres.setColor(color)
@@ -174,9 +168,187 @@ class SceneBank(Scene):
 
 
 
-############ Up scene #############
-#                                 #
-###################################
+    ############ Up scene #############
+    #                                 #
+    ###################################
+
+    def colorUp1(self, color):
+        def run():
+            self.univers_dmx.resetAllMasterSlave()
+            self.univers_dmx.getRightLyres().addSlave(self.univers_dmx.getLeftLyres())
+
+            while self.running:
+                sleepTime = calculateSleepTime(self.controller)
+                self.univers_dmx.getAllLyre().enableLight(True)
+                self.univers_dmx.getAllLyre().setColor(color)
+                self.ml.enableLight(True)
+                self.ml.setColor(color)
+                self.univers_dmx.getRightLyres().move_to_arc(self.controller.config.centerPan -10, 140, sleepTime*2, 20)
+                time.sleep(sleepTime)
+                sleepTime = calculateSleepTime(self.controller)
+                time.sleep(sleepTime)
+
+                sleepTime = calculateSleepTime(self.controller)
+                self.univers_dmx.getAllLyre().turnOffAllLight()
+                self.ml.enableLight(False)
+                self.ml.setColor(color)
+                self.univers_dmx.getRightLyres().move_to(self.controller.config.centerPan -10 , 0, sleepTime)
+                time.sleep(sleepTime)
+                sleepTime = calculateSleepTime(self.controller)
+                time.sleep(sleepTime)
+
+        self.start(run)
+
+
+    def colorUp2(self, color):
+        def run():
+
+            self.univers_dmx.resetAllMasterSlave()
+            while self.running:
+
+                sleepTime = calculateSleepTime(self.controller)
+                self.univers_dmx.getAllLyre().enableLight(True)
+                self.univers_dmx.getAllLyre().setGobo(utils.randomGobo())
+                self.univers_dmx.getRightLyres().move_to(self.controller.config.centerPan, 100, sleepTime*2)
+                self.univers_dmx.getLeftLyres().move_to(self.controller.config.centerPan, 0, sleepTime*2)
+                self.univers_dmx.getAllLyre().setColor(color)
+                self.ml.enableLight(True)
+                self.ml.setColor(color)
+                time.sleep(sleepTime)
+
+                sleepTime = calculateSleepTime(self.controller)
+                self.ml.enableLight(False)
+                time.sleep(sleepTime)
+
+                sleepTime = calculateSleepTime(self.controller)
+
+                self.ml.enableLight(True)
+                self.ml.setColor(color)
+                self.univers_dmx.getRightLyres().move_to(self.controller.config.centerPan, 0, sleepTime*2)
+                self.univers_dmx.getLeftLyres().move_to(self.controller.config.centerPan, 100, sleepTime * 2)
+                time.sleep(sleepTime)
+                self.ml.enableLight(False)
+
+                sleepTime = calculateSleepTime(self.controller)
+                time.sleep(sleepTime)
+
+        self.start(run)
+
+    def colorUp3(self):
+        def run():
+            self.univers_dmx.resetAllMasterSlave()
+            self.univers_dmx.getRightLyres().addSlave(self.univers_dmx.getLeftLyres())
+            while self.running:
+                sleepTime = calculateSleepTime(self.controller)
+                posRand = random.randint(40, 70)
+                color = utils.random_color()
+                self.ml.enableLight(True)
+                self.ml.fade_to_color(color, sleepTime)
+                self.univers_dmx.getAllLyre().enableLight(True)
+                self.univers_dmx.getAllLyre().setColor(color)
+                self.univers_dmx.getRightLyres().move_to(self.controller.config.centerPan + posRand, 0, sleepTime*2)
+
+                time.sleep(sleepTime)
+                sleepTime = calculateSleepTime(self.controller)
+                time.sleep(sleepTime)
+
+                self.univers_dmx.getRightLyres().move_to(self.controller.config.centerPan - posRand, 0, sleepTime*2)
+
+                sleepTime = calculateSleepTime(self.controller)
+                time.sleep(sleepTime)
+                sleepTime = calculateSleepTime(self.controller)
+                time.sleep(sleepTime)
+
+        self.start(run)
+
+
+    def colorUp4(self, color):
+        def run():
+
+            self.univers_dmx.resetAllMasterSlave()
+
+            while self.running:
+                sleepTime = calculateSleepTime(self.controller)
+                posRand = random.randint(40, 70)
+
+                self.univers_dmx.getAllLyre().setColor(color)
+
+
+                self.ml.enableLight(True)
+                self.ml.setGreenLAZERLight(255)
+                self.ml.setGreenLAZERLight(255)
+                self.ml.setLAZERRotationSpeed(255)
+
+                self.univers_dmx.getRightLyres().enableLight(True)
+                self.univers_dmx.getLeftLyres().enableLight(False)
+                self.univers_dmx.getRightLyres().move_to(self.controller.config.centerPan, 100, sleepTime*2)
+                self.univers_dmx.getLeftLyres().move_to(self.controller.config.centerPan, 0, sleepTime)
+
+                time.sleep(sleepTime)
+                sleepTime = calculateSleepTime(self.controller)
+                self.ml.enableLight(False)
+
+                time.sleep(sleepTime)
+                self.ml.enableLight(True)
+
+
+
+                self.univers_dmx.getRightLyres().enableLight(False)
+                self.univers_dmx.getLeftLyres().enableLight(True)
+                self.univers_dmx.getRightLyres().move_to(self.controller.config.centerPan, 0, sleepTime)
+                self.univers_dmx.getLeftLyres().move_to(self.controller.config.centerPan, 100, sleepTime*2)
+
+                sleepTime = calculateSleepTime(self.controller)
+                time.sleep(sleepTime)
+                self.ml.enableLight(False)
+
+                sleepTime = calculateSleepTime(self.controller)
+                time.sleep(sleepTime)
+
+        self.start(run)
+
+
+    def colorUp5(self, color1):
+        def run():
+
+            self.univers_dmx.resetAllMasterSlave()
+
+            while self.running:
+                sleepTime = calculateSleepTime(self.controller)
+
+                lyres = self.univers_dmx.getAllLyre()
+                color = utils.random_color()
+
+                lyres.setColor(color1)
+                lyres.enableLight(True)
+                lyres.setGobo(utils.randomGobo())
+                self.ml.enableLight(True)
+                self.ml.setGreenLAZERLight(255)
+                self.ml.setLAZERRotationSpeed(200)
+                self.ml.fade7(1)
+                self.univers_dmx.getRightLyres().centerCircle(40, 25, sleepTime*8)
+                color = utils.random_color()
+                self.ml.setColor(color)
+                time.sleep(sleepTime)
+                sleepTime = calculateSleepTime(self.controller)
+
+                for i in range(6):
+                    color = utils.random_color()
+                    self.ml.setColor(color)
+                    time.sleep(sleepTime)
+                    self.univers_dmx.getLeftLyres().centerCircle(40, 25, sleepTime*8)
+
+
+
+
+
+        self.start(run)
+        return self
+
+
+
+
+
 
 
 
