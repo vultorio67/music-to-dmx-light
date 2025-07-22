@@ -13,6 +13,8 @@ import win32con
 import pytesseract
 import winsound
 
+from Util import capture_window
+
 # Nom de la fenêtre cible (doit être exactement le titre affiché)
 window_title = "rekordbox"
 
@@ -39,6 +41,9 @@ class SquareSelection():
         self.width = width
         self.heigth = heigth
 
+    def to_dict(self):
+        return {'x': self.x, 'y': self.y, 'width': self.width, 'heigth': self.heigth}
+
 
 deck1Area = SquareSelection(810, 157, 300, 70)
 deck2Area = SquareSelection(810, 230, 300, 70)
@@ -64,43 +69,7 @@ class Beat:
         return f"id: {self.id}, x: {self.x}, isPast: {self.isPast}"
 
 
-def capture_window(hwnd):
-    """ Capture le contenu d'une fenêtre spécifique même si elle est en arrière-plan """
 
-    # Récupérer la position et la taille de la fenêtre
-    left, top, right, bottom = win32gui.GetWindowRect(hwnd)
-    width, height = right - left, bottom - top
-
-    # Récupérer le device context (DC) de la fenêtre
-    hwndDC = win32gui.GetWindowDC(hwnd)
-    mfcDC = win32ui.CreateDCFromHandle(hwndDC)
-    saveDC = mfcDC.CreateCompatibleDC()
-
-    # Créer un bitmap compatible pour sauvegarder l'image
-    saveBitmap = win32ui.CreateBitmap()
-    saveBitmap.CreateCompatibleBitmap(mfcDC, width, height)
-    saveDC.SelectObject(saveBitmap)
-
-    # Copier la fenêtre dans le bitmap
-    saveDC.BitBlt((0, 0), (width, height), mfcDC, (0, 0), win32con.SRCCOPY)
-
-    # Convertir en tableau NumPy
-    bmpinfo = saveBitmap.GetInfo()
-    bmpstr = saveBitmap.GetBitmapBits(True)
-    img = np.frombuffer(bmpstr, dtype=np.uint8).reshape((bmpinfo['bmHeight'], bmpinfo['bmWidth'], 4))
-
-
-    # Libérer les ressources
-    win32gui.DeleteObject(saveBitmap.GetHandle())
-    saveDC.DeleteDC()
-    mfcDC.DeleteDC()
-    win32gui.ReleaseDC(hwnd, hwndDC)
-
-
-    #cv2.imshow("test", cv2.cvtColor(img, cv2.COLOR_BGRA2BGR))
-
-    # Convertir en BGR pour OpenCV
-    return cv2.cvtColor(img, cv2.COLOR_BGRA2BGR)
 
 #permet de décopuper une partie souhaité
 def crop_region(image, square:SquareSelection):

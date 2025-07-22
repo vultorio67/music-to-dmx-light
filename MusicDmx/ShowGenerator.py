@@ -6,7 +6,6 @@ from MusicDmx.fixtures.DmxFixtures import DMXLightFixtures, CouleurDMX
 import statistics
 
 
-
 class ShowGenerator:
 
     def __init__(self, controller):
@@ -74,8 +73,6 @@ class ShowGenerator:
             return self.beatList[-1].detectedTime
 
     def estimate_median_and_fill(self, max_gap_multiplier: float = 1.5) -> float:
-        # Tri par temps*
-
         beats = self.beatList
 
         if len(beats) == 0:

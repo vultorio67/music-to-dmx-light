@@ -2,12 +2,16 @@ import serial
 import threading
 import time
 
+from Util import Config
+
+
 class DMXSignalGenerator:
-    def __init__(self, controller, port='COM3', baudrate=250000, channels=512, fps=30):
+    def __init__(self, controller, baudrate=250000, channels=512, fps=30):
 
         self.mainController = controller
+        self.config = Config()
 
-        self.port = port
+        self.port = self.config.portDmx
         self.baudrate = baudrate
         self.channels = channels
         self.fps = fps
@@ -18,14 +22,15 @@ class DMXSignalGenerator:
         self.running = False
         self.thread = None
 
-        # Port série
-        self.serial = serial.Serial(
-            self.port,
-            baudrate=self.baudrate,
-            bytesize=8,
-            parity='N',
-            stopbits=2
-        )
+        if checkSerial(self.port):
+            # Port série
+            self.serial = serial.Serial(
+                self.port,
+                baudrate=self.baudrate,
+                bytesize=8,
+                parity='N',
+                stopbits=2
+            )
 
     def set_channel(self, channel, value):
         """Change la valeur d'un canal (1-512)"""
@@ -62,7 +67,7 @@ class DMXSignalGenerator:
 
     def start(self):
         """Démarre le thread DMX"""
-        if not self.running:
+        if not self.running and checkSerial(self.port):
             self.running = True
             self.thread = threading.Thread(target=self._run)
             #a definir plus tard car pour l'instant le programme s'arrète
@@ -76,3 +81,10 @@ class DMXSignalGenerator:
             self.thread.join()
         self.serial.close()
 
+
+def checkSerial(port: str) -> bool:
+    try:
+        serial.Serial("COM3", 9600)
+        return True
+    except serial.serialutil.SerialException:
+        return False

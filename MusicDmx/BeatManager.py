@@ -30,7 +30,6 @@ class MainBeat(Beat):
 
 
 
-
 class BeatManager:
 
     def __init__(self, window_queue: Queue):

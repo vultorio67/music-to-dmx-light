@@ -3,8 +3,8 @@ import math
 import psutil
 import winsound
 
-from MusicDmx.BeatManager import MainBeat, BeatManager, BasicBeat
-from Util import Config
+from MusicDmx.BeatManager import MainBeat, BasicBeat
+from Util import Config, capture_window
 from Util import getColorDB
 
 import pygetwindow as gw
@@ -34,75 +34,42 @@ class RekordbowWindow:
 
         window_title = config.windowName
 
-        windows = gw.getWindowsWithTitle(window_title)
-        if not windows:
-            print("Fenêtre non trouvée !")
-            exit()
+        self.windows = gw.getWindowsWithTitle(window_title)
+        if not self.windows:
+            print("No rekorkbox window found")
+            print("Starting in no beat Beat mode")
 
-        print(windows)
+        else:
+            print(self.windows)
 
-        #régler le beug du nombre
-        try:
-            window = windows[1]
-        except:
-            window = windows[0]
-        self.hwnd = window._hWnd  # Handle de la fenêtre
+            #régler le beug du nombre
+            try:
+                window = self.windows[1]
+            except:
+                window = self.windows[0]
+            self.hwnd = window._hWnd  # Handle de la fenêtre
 
-        self.master = 1
+            self.master = 1
 
-        self.color_db = getColorDB()
+            self.color_db = getColorDB()
 
-        self.beat_bar_position = 163
+            self.beat_bar_position = 163
 
-        self.beatObjectList = []
+            self.beatObjectList = []
 
-        #à changer pour mettre dans config
-        self.deck1Area = SquareSelection(810, 157, 300, 70)
-        self.deck2Area = SquareSelection(810, 227, 300, 70)
+            #à changer pour mettre dans config
+            self.deck1Area = SquareSelection(810, 157, 300, 70)
+            self.deck2Area = SquareSelection(810, 227, 300, 70)
 
-        self.master1Detect = SquareSelection(900, 325, 50, 15)
-        self.master2Detect = SquareSelection(1850, 325, 50, 15)
+            self.master1Detect = SquareSelection(900, 325, 50, 15)
+            self.master2Detect = SquareSelection(1850, 325, 50, 15)
 
-        self.timeLine1 = SquareSelection(10, 340, 950, 40)
-        self.timeLine2 = SquareSelection(970, 340, 950, 40)
+            self.timeLine1 = SquareSelection(10, 340, 950, 40)
+            self.timeLine2 = SquareSelection(970, 340, 950, 40)
 
-        self.partDetection1 = SquareSelection(10, 380, 950, 15)
-        self.partDetection2 = SquareSelection(970, 380, 950, 15)
+            self.partDetection1 = SquareSelection(10, 380, 950, 15)
+            self.partDetection2 = SquareSelection(970, 380, 950, 15)
 
-    def capture_window(self,hwnd):
-        """ Capture le contenu d'une fenêtre spécifique même si elle est en arrière-plan """
-
-        # Récupérer la position et la taille de la fenêtre
-        left, top, right, bottom = win32gui.GetWindowRect(hwnd)
-        width, height = right - left, bottom - top
-
-        # Récupérer le device context (DC) de la fenêtre
-        hwndDC = win32gui.GetWindowDC(hwnd)
-        mfcDC = win32ui.CreateDCFromHandle(hwndDC)
-        saveDC = mfcDC.CreateCompatibleDC()
-
-        # Créer un bitmap compatible pour sauvegarder l'image
-        saveBitmap = win32ui.CreateBitmap()
-        saveBitmap.CreateCompatibleBitmap(mfcDC, width, height)
-        saveDC.SelectObject(saveBitmap)
-
-        # Copier la fenêtre dans le bitmap
-        saveDC.BitBlt((0, 0), (width, height), mfcDC, (0, 0), win32con.SRCCOPY)
-
-        # Convertir en tableau NumPy
-        bmpinfo = saveBitmap.GetInfo()
-        bmpstr = saveBitmap.GetBitmapBits(True)
-        img = np.frombuffer(bmpstr, dtype=np.uint8).reshape((bmpinfo['bmHeight'], bmpinfo['bmWidth'], 4))
-        #print(img)
-
-        # Libérer les ressources
-        win32gui.DeleteObject(saveBitmap.GetHandle())
-        saveDC.DeleteDC()
-        mfcDC.DeleteDC()
-        win32gui.ReleaseDC(hwnd, hwndDC)
-
-        # Convertir en BGR pour OpenCV
-        return cv2.cvtColor(img, cv2.COLOR_BGRA2BGR)
 
     def ajouter_si_pas_trop_proche(self, liste, element, seuil):
         for e in liste:
@@ -112,11 +79,10 @@ class RekordbowWindow:
         return True
 
     def crop_region(self, image, square: SquareSelection):
-        """ Découpe une région spécifique de l'image """
         return image[square.y:square.y + square.heigth, square.x:square.x + square.width]
 
     def get_croped_deck(self,deckArea):
-        return self.crop_region(self.capture_window(self.hwnd), deckArea)
+        return self.crop_region(capture_window(self.hwnd), deckArea)
 
     def detectMaster(self, rekordBoxImage):
         LOWER_ORANGE = np.array([5, 158, 158])  # Valeur minimale (en HSV)
@@ -349,78 +315,79 @@ class RekordbowWindow:
 
 
     def run(self, queue : Queue, firstReferenceTime):
-        try:
-            print("Process démarré")
-            self.beatList = []
-            self.mainBeatList = []
+        if self.windows:
+            try:
+                print("Process démarré")
+                self.beatList = []
+                self.mainBeatList = []
 
-            last_action_time = time.time()
+                last_action_time = time.time()
 
-            current_master = self.master
+                current_master = self.master
 
-            self.firstReferenceTime = firstReferenceTime
+                self.firstReferenceTime = firstReferenceTime
 
-            p = psutil.Process()
-            p.nice(psutil.HIGH_PRIORITY_CLASS)
+                p = psutil.Process()
+                p.nice(psutil.HIGH_PRIORITY_CLASS)
 
-            while True:
-                # print(get_croped_deck(deck1Area))
-                # window_queue.put(get_croped_deck(deck1Area))
+                while True:
+                    # print(get_croped_deck(deck1Area))
+                    # window_queue.put(get_croped_deck(deck1Area))
 
-                # permet de détecter quell est le master avec un pas de tp
+                    # permet de détecter quell est le master avec un pas de tp
 
-                current_time = time.time()
-                if current_time - last_action_time >= 0.2:
-                    self.master = self.detectMaster(self.capture_window(self.hwnd))
-                    # print(self.getCurrentActiveMoment())
-                    last_action_time = current_time
+                    current_time = time.time()
+                    if current_time - last_action_time >= 0.2:
+                        self.master = self.detectMaster(capture_window(self.hwnd))
+                        # print(self.getCurrentActiveMoment())
+                        last_action_time = current_time
 
-                if current_master != self.master:
-                    print("master change, refresh the music structure")
-                    self.masterMusicStructure = self.getDeckMusicStructure(self.master)
-                    current_master = self.master
+                    if current_master != self.master:
+                        print("master change, refresh the music structure")
+                        self.masterMusicStructure = self.getDeckMusicStructure(self.master)
+                        current_master = self.master
 
-                if (self.master == 1):
-                    self.deckImage = self.get_croped_deck(self.deck1Area)
-                    self.deckTimeLineImage = self.get_croped_deck(self.timeLine1)
-                    self.partDetectionImage = self.get_croped_deck(self.partDetection1)
-                else:
-                    self.deckImage = self.get_croped_deck(self.deck2Area)
-                    self.deckTimeLineImage = self.get_croped_deck(self.timeLine2)
-                    self.partDetectionImage = self.get_croped_deck(self.partDetection2)
+                    if (self.master == 1):
+                        self.deckImage = self.get_croped_deck(self.deck1Area)
+                        self.deckTimeLineImage = self.get_croped_deck(self.timeLine1)
+                        self.partDetectionImage = self.get_croped_deck(self.partDetection1)
+                    else:
+                        self.deckImage = self.get_croped_deck(self.deck2Area)
+                        self.deckTimeLineImage = self.get_croped_deck(self.timeLine2)
+                        self.partDetectionImage = self.get_croped_deck(self.partDetection2)
 
-                # print(valid_contours)
+                    # print(valid_contours)
 
-                self.beatAnalisys(queue)
+                    self.beatAnalisys(queue)
 
-                all = [self.basicBeat, self.mainBeat]
-                # queue.put(all)
+                    all = [self.basicBeat, self.mainBeat]
+                    # queue.put(all)
 
-                if 158 in self.mainBeat:
-                    self.mainBeat.remove(158)
+                    if 158 in self.mainBeat:
+                        self.mainBeat.remove(158)
 
-                if 159 in self.mainBeat:
-                    self.mainBeat.remove(159)
+                    if 159 in self.mainBeat:
+                        self.mainBeat.remove(159)
 
-                # print("main",self.mainBeat)
+                    # print("main",self.mainBeat)
 
-                for i in self.basicBeat:
-                    cv2.line(self.deckImage, (int(i), 0), (int(i), 100), (0, 255, 0), 1)
+                    for i in self.basicBeat:
+                        cv2.line(self.deckImage, (int(i), 0), (int(i), 100), (0, 255, 0), 1)
 
-                for i in self.mainBeat:
-                    cv2.line(self.deckImage, (int(i), 0), (int(i), 100), (255, 0, 255), 1)
+                    for i in self.mainBeat:
+                        cv2.line(self.deckImage, (int(i), 0), (int(i), 100), (255, 0, 255), 1)
 
-                cv2.line(self.deckImage, (self.beat_bar_position, 0), (self.beat_bar_position, 100), (255, 255, 255), 2)
+                    cv2.line(self.deckImage, (self.beat_bar_position, 0), (self.beat_bar_position, 100), (255, 255, 255), 2)
 
-                cv2.imshow("test", self.deckImage)
+                    cv2.imshow("test", self.deckImage)
 
-                if cv2.waitKey(1) & 0xFF == ord('q'):
-                    break
-            # Ton code ici...
-        except Exception as e:
-            import traceback
-            print("Exception dans le processus :")
-            traceback.print_exc()
+                    if cv2.waitKey(1) & 0xFF == ord('q'):
+                        break
+                # Ton code ici...
+            except Exception as e:
+                import traceback
+                print("Exception dans le processus :")
+                traceback.print_exc()
 
 
 

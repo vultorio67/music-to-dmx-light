@@ -12,9 +12,6 @@ fixtures:
   - adresse: 12
     name: lyre2
     type: LyreSylvain
-  - adresse: 23
-    name: led_evan
-    type: MyLight
   top:
   - adresse: 23
     name: my1
