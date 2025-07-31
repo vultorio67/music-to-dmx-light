@@ -1,3 +1,4 @@
+import logging
 import threading
 import time
 
@@ -23,18 +24,22 @@ class ShowGenerator:
 
     def run(self):
 
-        time.sleep(3)
+        time.sleep(0.5)
+
+        logging.info("[ShowGenerator] Waiting for a MainBeat to start the show")
 
         while self.mainController.showGenerator.getLastMainBeatTime() == None:
+            time.sleep(0.1)
             pass
 
         while abs(self.mainController.showGenerator.getLastMainBeatTime() - self.mainController.getCurrentTime()) < 0.05:
             time.sleep(0.01)
-            print("starting the scene")
 
-        a = self.mainController.sceneBank.basic_disco()
+        logging.info("[ShowGenerator] Starting The show !!!")
+
+        a = self.mainController.sceneBank.colorUp4("pink")
         time.sleep(2)
-        a.stop()
+        #a.stop()
 
 
         while True:
@@ -88,7 +93,7 @@ class ShowGenerator:
         ]
 
         if not intervals:
-            return beats, None
+            return beats
 
         # Estimation du BPM à partir de la médiane des intervalles
         median_interval = float(statistics.median(intervals))

@@ -1,11 +1,11 @@
+import logging
 import math
 
 import psutil
 import winsound
 
-from MusicDmx.BeatManager import MainBeat, BasicBeat
-from Util import Config, capture_window
-from Util import getColorDB
+from MusicDmx.BeatManager import MainBeat, BeatManager, BasicBeat
+from Util import Config, getColorDB, capture_window
 
 import pygetwindow as gw
 import time
@@ -34,41 +34,40 @@ class RekordbowWindow:
 
         window_title = config.windowName
 
-        self.windows = gw.getWindowsWithTitle(window_title)
-        if not self.windows:
-            print("No rekorkbox window found")
-            print("Starting in no beat Beat mode")
+        windows = gw.getWindowsWithTitle(window_title)
+        if not windows:
+            print("Fenêtre non trouvée !")
+            exit()
 
-        else:
-            print(self.windows)
+        print(windows)
 
-            #régler le beug du nombre
-            try:
-                window = self.windows[1]
-            except:
-                window = self.windows[0]
-            self.hwnd = window._hWnd  # Handle de la fenêtre
+        #régler le beug du nombre
+        try:
+            window = windows[1]
+        except:
+            window = windows[0]
+        self.hwnd = window._hWnd  # Handle de la fenêtre
 
-            self.master = 1
+        self.master = 1
 
-            self.color_db = getColorDB()
+        self.color_db = getColorDB()
 
-            self.beat_bar_position = 163
+        self.beat_bar_position = 163
 
-            self.beatObjectList = []
+        self.beatObjectList = []
 
-            #à changer pour mettre dans config
-            self.deck1Area = SquareSelection(810, 157, 300, 70)
-            self.deck2Area = SquareSelection(810, 227, 300, 70)
+        #à changer pour mettre dans config
+        self.deck1Area = SquareSelection(810, 157, 300, 70)
+        self.deck2Area = SquareSelection(810, 227, 300, 70)
 
-            self.master1Detect = SquareSelection(900, 325, 50, 15)
-            self.master2Detect = SquareSelection(1850, 325, 50, 15)
+        self.master1Detect = SquareSelection(900, 325, 50, 15)
+        self.master2Detect = SquareSelection(1850, 325, 50, 15)
 
-            self.timeLine1 = SquareSelection(10, 340, 950, 40)
-            self.timeLine2 = SquareSelection(970, 340, 950, 40)
+        self.timeLine1 = SquareSelection(10, 340, 950, 40)
+        self.timeLine2 = SquareSelection(970, 340, 950, 40)
 
-            self.partDetection1 = SquareSelection(10, 380, 950, 15)
-            self.partDetection2 = SquareSelection(970, 380, 950, 15)
+        self.partDetection1 = SquareSelection(10, 380, 950, 15)
+        self.partDetection2 = SquareSelection(970, 380, 950, 15)
 
 
     def ajouter_si_pas_trop_proche(self, liste, element, seuil):
@@ -79,6 +78,7 @@ class RekordbowWindow:
         return True
 
     def crop_region(self, image, square: SquareSelection):
+        """ Découpe une région spécifique de l'image """
         return image[square.y:square.y + square.heigth, square.x:square.x + square.width]
 
     def get_croped_deck(self,deckArea):
@@ -89,6 +89,10 @@ class RekordbowWindow:
         UPPER_ORANGE = np.array([15, 255, 255])  # Valeur maximale (en HSV)
 
         deck1Image = self.crop_region(rekordBoxImage, self.master1Detect)
+
+        if deck1Image is None:
+            logging.error("[RekordBoxWindow] Capture image is empty")
+            return  # ou gérer différemment
 
         # Convertir l'image en espace HSV
         hsv = cv2.cvtColor(deck1Image, cv2.COLOR_BGR2HSV)
@@ -309,85 +313,92 @@ class RekordbowWindow:
                     return [structure[i]['moment'], i]
                 i=i+1
         except:
-            print("not detect")
+            logging.error("[RekordboxWindow] Failed to get current active moment")
 
 
 
-
+    # il faut regler le problème des images vides
     def run(self, queue : Queue, firstReferenceTime):
-        if self.windows:
-            try:
-                print("Process démarré")
-                self.beatList = []
-                self.mainBeatList = []
+        try:
+            self.beatList = []
+            self.mainBeatList = []
 
-                last_action_time = time.time()
+            last_action_time = time.time()
 
-                current_master = self.master
+            current_master = self.master
 
-                self.firstReferenceTime = firstReferenceTime
+            self.firstReferenceTime = firstReferenceTime
 
-                p = psutil.Process()
-                p.nice(psutil.HIGH_PRIORITY_CLASS)
+            p = psutil.Process()
+            p.nice(psutil.HIGH_PRIORITY_CLASS)
 
-                while True:
-                    # print(get_croped_deck(deck1Area))
-                    # window_queue.put(get_croped_deck(deck1Area))
 
-                    # permet de détecter quell est le master avec un pas de tp
 
-                    current_time = time.time()
-                    if current_time - last_action_time >= 0.2:
-                        self.master = self.detectMaster(capture_window(self.hwnd))
-                        # print(self.getCurrentActiveMoment())
-                        last_action_time = current_time
+            while True:
+                # print(get_croped_deck(deck1Area))
+                # window_queue.put(get_croped_deck(deck1Area))
 
-                    if current_master != self.master:
-                        print("master change, refresh the music structure")
-                        self.masterMusicStructure = self.getDeckMusicStructure(self.master)
-                        current_master = self.master
+                # permet de détecter quell est le master avec un pas de tp
 
-                    if (self.master == 1):
-                        self.deckImage = self.get_croped_deck(self.deck1Area)
-                        self.deckTimeLineImage = self.get_croped_deck(self.timeLine1)
-                        self.partDetectionImage = self.get_croped_deck(self.partDetection1)
-                    else:
-                        self.deckImage = self.get_croped_deck(self.deck2Area)
-                        self.deckTimeLineImage = self.get_croped_deck(self.timeLine2)
-                        self.partDetectionImage = self.get_croped_deck(self.partDetection2)
+                rekorkdboxImage = capture_window(self.hwnd)
 
-                    # print(valid_contours)
+                current_time = time.time()
+                if current_time - last_action_time >= 0.2:
+                    #print("!!!!!!!!", capture_window(self.hwnd))
+                    #time.sleep(0.01)
+                    try:
+                        self.master = self.detectMaster(rekorkdboxImage)
+                    except:
+                        logging.error("[RekordboxWindow] Failed to get current master deck")
+                    # print(self.getCurrentActiveMoment())
+                    last_action_time = current_time
 
-                    self.beatAnalisys(queue)
+                if current_master != self.master:
+                    logging.info("[RekordboxWindow] Master deck changed")
+                    self.masterMusicStructure = self.getDeckMusicStructure(self.master)
+                    current_master = self.master
 
-                    all = [self.basicBeat, self.mainBeat]
-                    # queue.put(all)
+                if (self.master == 1):
+                    self.deckImage = self.get_croped_deck(self.deck1Area)
+                    self.deckTimeLineImage = self.get_croped_deck(self.timeLine1)
+                    self.partDetectionImage = self.get_croped_deck(self.partDetection1)
+                else:
+                    self.deckImage = self.get_croped_deck(self.deck2Area)
+                    self.deckTimeLineImage = self.get_croped_deck(self.timeLine2)
+                    self.partDetectionImage = self.get_croped_deck(self.partDetection2)
 
-                    if 158 in self.mainBeat:
-                        self.mainBeat.remove(158)
+                # print(valid_contours)
 
-                    if 159 in self.mainBeat:
-                        self.mainBeat.remove(159)
+                self.beatAnalisys(queue)
 
-                    # print("main",self.mainBeat)
+                all = [self.basicBeat, self.mainBeat]
+                # queue.put(all)
 
-                    for i in self.basicBeat:
-                        cv2.line(self.deckImage, (int(i), 0), (int(i), 100), (0, 255, 0), 1)
+                if 158 in self.mainBeat:
+                    self.mainBeat.remove(158)
 
-                    for i in self.mainBeat:
-                        cv2.line(self.deckImage, (int(i), 0), (int(i), 100), (255, 0, 255), 1)
+                if 159 in self.mainBeat:
+                    self.mainBeat.remove(159)
 
-                    cv2.line(self.deckImage, (self.beat_bar_position, 0), (self.beat_bar_position, 100), (255, 255, 255), 2)
+                # print("main",self.mainBeat)
 
-                    cv2.imshow("test", self.deckImage)
+                for i in self.basicBeat:
+                    cv2.line(self.deckImage, (int(i), 0), (int(i), 100), (0, 255, 0), 1)
 
-                    if cv2.waitKey(1) & 0xFF == ord('q'):
-                        break
-                # Ton code ici...
-            except Exception as e:
-                import traceback
-                print("Exception dans le processus :")
-                traceback.print_exc()
+                for i in self.mainBeat:
+                    cv2.line(self.deckImage, (int(i), 0), (int(i), 100), (255, 0, 255), 1)
+
+                cv2.line(self.deckImage, (self.beat_bar_position, 0), (self.beat_bar_position, 100), (255, 255, 255), 2)
+
+                cv2.imshow("test", rekorkdboxImage)
+
+                if cv2.waitKey(1) & 0xFF == ord('q'):
+                    break
+            # Ton code ici...
+        except Exception as e:
+            import traceback
+            logging.fatal("[RekordboxWindow] Fatal Error: {}".format(e))
+            traceback.print_exc()
 
 
 

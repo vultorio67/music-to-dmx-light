@@ -1,5 +1,2 @@
-Util/
-Util/utils.py
-/Util/__pycache__
-/MusicDmx/__pycache__
-Util/__pycache__/config.cpython-312.pyc
+/.idea
+.idea/pythonProject1.iml

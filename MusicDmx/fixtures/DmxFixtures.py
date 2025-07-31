@@ -2,10 +2,7 @@ import math
 import threading
 import time
 from abc import abstractmethod, ABC
-from typing import Callable, Optional
 
-from MusicDmx import DmxSignalGenerator
-from MusicDmx.DmxSignalGenerator import DMXSignalGenerator
 from Util import getStandartColor, Config
 
 cfg = Config()
@@ -19,6 +16,7 @@ class CouleurDMX:
         self.mode = mode
         self.table_macro = table_macro or {}
         self.rgb = (0, 0, 0)
+        self.w = 0
         self.nom_macro = "aucune"
         self.valeur_macro = 0
 
@@ -60,6 +58,8 @@ class CouleurDMX:
 
     def getBlue(self):
         return self.rgb[2]
+    def getWhite(self):
+        return self.w
 
     def get_dmx(self):
         """
@@ -101,6 +101,12 @@ class DMXFixture(ABC):
         self.start_address = start_address - 1
         self.dmx = dmx
         self.isRunnigEffect = False
+
+    def __str__(self):
+        return f"{self.__class__.__name__}(start_address={self.start_address+1})"
+
+    def __repr__(self):
+        return self.__str__()
 
     @abstractmethod
     def enableAutoMode(self, value):
@@ -157,6 +163,27 @@ class DMXLightRGBFixtures(DMXLightFixtures):
 
         if self._fade_thread and self._fade_thread.is_alive():
             # Si un fade est en cours, on le stoppe
+            self._fade_thread.join()
+
+        self._fade_thread = threading.Thread(target=fade, daemon=True)
+        self._fade_thread.start()
+
+    def fade_to_black(self, duration: float = 2.0):
+        def fade():
+            steps = 50
+            sleep_time = duration / steps
+            start_r, start_g, start_b = self.current_color
+
+            for step in range(1, steps + 1):
+                with self._fade_lock:
+                    r = int(start_r * (1 - step / steps))
+                    g = int(start_g * (1 - step / steps))
+                    b = int(start_b * (1 - step / steps))
+                    newColor = CouleurDMX("rgb", (r, g, b), None).get_dmx()
+                    self.setColor(newColor)
+            time.sleep(sleep_time)
+
+        if self._fade_thread and self._fade_thread.is_alive():
             self._fade_thread.join()
 
         self._fade_thread = threading.Thread(target=fade, daemon=True)
@@ -259,91 +286,7 @@ class DMXMovingFixture(DMXFixture):
     def ease_out_exp(self, t):
         return 1 - (1 - t) ** 3
 
-
-class MyLight(DMXLightRGBFixtures):
-    def __init__(self, name, start_address, dmx):
-        super().__init__(name, start_address, dmx)
-        self.parameter = {
-            "movement":
-                {
-                    "rotation_1": 1,
-                    "party_rotation": 2,
-                    "lazer_rotation":3
-                },
-            "enable_light": 4,
-            "light":
-                {
-                    "stroboscop_light": 5,
-                    "r":6,
-                    "g":7,
-                    "b":8,
-                    "rotation_1_light": 9,
-                    "party_light":10,
-                    "r_lazer":11,
-                    "g_lazer":12,
-                    "stroboscope_speed": 13,
-                    "automatic_light":14
-
-                }
-        }
-
-    def enableLight(self, isEnabled):
-        if isEnabled:
-            self.dmx.set_channel(self.start_address + self.parameter["enable_light"], 255)
-            print(self.start_address + self.parameter["enable_light"])
-        else:
-            self.dmx.set_channel(self.start_address + self.parameter["enable_light"], 0)
-
-    def setColor(self, color):
-        dmxColor = CouleurDMX("rgb", color, None).get_dmx()
-        self.dmx.set_channel(self.start_address + self.parameter["light"]["r"], dmxColor[0])
-        self.dmx.set_channel(self.start_address + self.parameter["light"]["g"], dmxColor[1])
-        self.dmx.set_channel(self.start_address + self.parameter["light"]["b"], dmxColor[2])
-        self.current_color = (dmxColor[0], dmxColor[1], dmxColor[2])
-
-    def turnOffAllLight(self):
-        self.setColor((0,0,0))
-        self.setPartyLight(0)
-        self.setRotation1Light(0)
-        self.setGreenLAZERLight(0)
-        self.setRedLAZERLight(0)
-        self.setStroboscopeSpeed(0)
-
-    def setRotation1Light(self, intensity):
-        self.dmx.set_channel(self.start_address + self.parameter["light"]["rotation_1_light"], intensity)
-
-    def setPartyLight(self, intensity):
-        self.dmx.set_channel(self.start_address + self.parameter["light"]["party_light"], intensity)
-
-    def setRedLAZERLight(self, intensity):
-        self.dmx.set_channel(self.start_address + self.parameter["light"]["r_lazer"], intensity)
-
-    def setGreenLAZERLight(self, intensity):
-        self.dmx.set_channel(self.start_address + self.parameter["light"]["g_lazer"], intensity)
-
-    def setStroboscopeSpeed(self, speed:int):
-        self.dmx.set_channel(self.start_address + self.parameter["light"]["stroboscope_speed"], speed)
-        self.dmx.set_channel(self.start_address + self.parameter["light"]["stroboscop_light"], speed)
-
-    def enableAutoMode(self, value):
-        self.dmx.set_channel(self.start_address + self.parameter["light"]["automatic_light"], value)
-
-    def setRotationSpeed(self,speed:int):
-        self.dmx.set_channel(self.start_address + self.parameter["movement"]["rotation_1"], speed)
-    def setPartyLightRotationSpeed(self,speed:int):
-        self.dmx.set_channel(self.start_address + self.parameter["movement"]["party_rotation"], speed)
-    def setLAZERRotationSpeed(self,speed:int):
-        self.dmx.set_channel(self.start_address + self.parameter["movement"]["lazer_rotation"], speed)
-
-
-
-"""
-!!! mélange de couleur non traité
-"""
-#11 cannaux utilisés
-#pan en degréé * 2
-# tilt : 125 c'es tdroit
-class LyreSylvain(DMXLightFixtures, DMXMovingFixture):
+class DMXMovingHeadFixture(DMXMovingFixture):
     def __init__(self, name, start_address, dmx):
         super().__init__(name, start_address, dmx)
         self.currentPan = 0
@@ -351,118 +294,31 @@ class LyreSylvain(DMXLightFixtures, DMXMovingFixture):
         self._task_done = threading.Event()
         self._thread = None
         self.lock = threading.Lock()
-        self.parameter = {
-            "enable_light": 8,
-            "movement":
-                {
-                    "pan": 1,
-                    "pan_fine": 2,
-                    "tilt": 3,
-                    "tilt_fine":4
-                },
-            "light":
-                {
-                    "channel": 5,
-                    "macroColors": {
-                        "white":(0,9),
-                        "red":(10,19),
-                        "green":(20,29),
-                        "blue":(30,39),
-                        "yellow":(40,49),
-                        "orange":(59,59),
-                        "light_blue":(60,69),
-                        "pink":(70,79),
-                    }
-                },
-            "gobos":
-                {
-                    "channel": 6,
-                    "open": (0, 7),
-                    "gobo1": (8, 15),
-                    "gobo2": (16, 23),
-                    "gobo3": (24, 31),
-                    "gobo4": (32, 39),
-                    "gobo5": (40, 47),
-                    "gobo6": (48, 55),
-                    "gobo7": (56, 63),
-                    "gobo1_shake": (64, 71),
-                    "gobo2_shake": (72, 79),
-                    "gobo3_shake": (80, 87),
-                    "gobo4_shake": (88, 95),
-                    "gobo5_shake": (96, 103),
-                    "gobo6_shake": (104, 111),
-                    "gobo7_shake": (112, 119),
-                    "gobo_rainbow": (120, 127),
-                    "gobo_auto_scroll": (128, 255)
-                },
-            "auto_sound": {
-                "channel": 10,  # à adapter selon ton mapping
-                "modes": {
-                    "off": (0, 59),
-                    "auto1": (60, 84),
-                    "auto2": (85, 109),
-                    "auto3": (110, 134),
-                    "auto4": (135, 159),
-                    "sound0": (160, 184),
-                    "sound1": (185, 209),
-                    "sound2": (210, 234),
-                    "sound3": (235, 249),
-                    "reset": (250, 255)
-                }
-            },
-            "stroboscope_speed": 7
-        }
+
         self.mirror_slave = []
         self.center_pan = cfg
 
     def addSlave(self, slave):
         self.mirror_slave.append(slave)
 
-    def enableLight(self, isEnabled):
-        if isEnabled:
-            self.dmx.set_channel(self.start_address + self.parameter["enable_light"], 255)
-        else:
-            self.dmx.set_channel(self.start_address + self.parameter["enable_light"], 0)
-
-    def setColor(self, color:str):
-        dmxColor = CouleurDMX("macro", color, self.parameter["light"]["macroColors"]).get_dmx()
-        self.dmx.set_channel(self.start_address + self.parameter["light"]["channel"], dmxColor)
-
-    def setStroboscopeSpeed(self, speed:int):
-        self.dmx.set_channel(self.start_address + self.parameter["stroboscope_speed"], speed)
-
-    def turnOffAllLight(self):
-        self.enableLight(False)
-        self.setStroboscopeSpeed(0)
-
-
-    def setGobo(self, gobo_name:str):
-        mode_dict = self.parameter["gobos"]
-        if gobo_name not in mode_dict:
-            raise ValueError(f"Mode auto/sound inconnu : {gobo_name}")
-        plage = mode_dict[gobo_name]
-        valeur = (plage[0] + plage[1]) // 2
-        channel = self.parameter["gobos"]["channel"]
-        self.dmx.set_channel(self.start_address + channel, valeur)
-
+    @abstractmethod
     def setPanPos(self, pan_angle:int):
-        self.dmx.set_channel(self.start_address + self.parameter["movement"]["pan"], pan_angle)
-        self.currentPan = pan_angle
+        pass
 
+    @abstractmethod
     def setTiltPos(self, tilt_angle:int):
-        self.dmx.set_channel(self.start_address + self.parameter["movement"]["tilt"], tilt_angle)
-        self.currentTilt = tilt_angle
-
-    def setPos(self, pan:int, tilt:int):
-        self.setPanPos(pan)
-        self.setTiltPos(tilt)
-        self._notify_slaves()
+        pass
 
     def _notify_slaves(self):
         for slave in self.mirror_slave:
             mirrored_pan = int(-self.currentPan+ 2 * cfg.centerPan)
             if 0 < mirrored_pan < 255:
                 slave.setPos(mirrored_pan, self.currentTilt)
+
+    def setPos(self, pan:int, tilt:int):
+        self.setPanPos(pan)
+        self.setTiltPos(tilt)
+        self._notify_slaves()
 
     def goToHomePosition(self):
         self.setPos(cfg.centerPan, 0)
@@ -666,6 +522,190 @@ class LyreSylvain(DMXLightFixtures, DMXMovingFixture):
 
         self.start_motion(motion)
 
+
+class MyLight(DMXLightRGBFixtures):
+    def __init__(self, name, start_address, dmx):
+        super().__init__(name, start_address, dmx)
+        self.parameter = {
+            "movement":
+                {
+                    "rotation_1": 1,
+                    "party_rotation": 2,
+                    "lazer_rotation":3
+                },
+            "enable_light": 4,
+            "light":
+                {
+                    "stroboscop_light": 5,
+                    "r":6,
+                    "g":7,
+                    "b":8,
+                    "rotation_1_light": 9,
+                    "party_light":10,
+                    "r_lazer":11,
+                    "g_lazer":12,
+                    "stroboscope_speed": 13,
+                    "automatic_light":14
+
+                }
+        }
+
+    def enableLight(self, isEnabled):
+        if isEnabled:
+            self.dmx.set_channel(self.start_address + self.parameter["enable_light"], 255)
+            print(self.start_address + self.parameter["enable_light"])
+        else:
+            self.dmx.set_channel(self.start_address + self.parameter["enable_light"], 0)
+
+    def setColor(self, color):
+        dmxColor = CouleurDMX("rgb", color, None).get_dmx()
+        self.dmx.set_channel(self.start_address + self.parameter["light"]["r"], dmxColor[0])
+        self.dmx.set_channel(self.start_address + self.parameter["light"]["g"], dmxColor[1])
+        self.dmx.set_channel(self.start_address + self.parameter["light"]["b"], dmxColor[2])
+        self.current_color = (dmxColor[0], dmxColor[1], dmxColor[2])
+
+    def turnOffAllLight(self):
+        self.setColor((0,0,0))
+        self.setPartyLight(0)
+        self.setRotation1Light(0)
+        self.setGreenLAZERLight(0)
+        self.setRedLAZERLight(0)
+        self.setStroboscopeSpeed(0)
+
+    def setRotation1Light(self, intensity):
+        self.dmx.set_channel(self.start_address + self.parameter["light"]["rotation_1_light"], intensity)
+
+    def setPartyLight(self, intensity):
+        self.dmx.set_channel(self.start_address + self.parameter["light"]["party_light"], intensity)
+
+    def setRedLAZERLight(self, intensity):
+        self.dmx.set_channel(self.start_address + self.parameter["light"]["r_lazer"], intensity)
+
+    def setGreenLAZERLight(self, intensity):
+        self.dmx.set_channel(self.start_address + self.parameter["light"]["g_lazer"], intensity)
+
+    def setStroboscopeSpeed(self, speed:int):
+        self.dmx.set_channel(self.start_address + self.parameter["light"]["stroboscope_speed"], speed)
+        self.dmx.set_channel(self.start_address + self.parameter["light"]["stroboscop_light"], speed)
+
+    def enableAutoMode(self, value):
+        self.dmx.set_channel(self.start_address + self.parameter["light"]["automatic_light"], value)
+
+    def setRotationSpeed(self,speed:int):
+        self.dmx.set_channel(self.start_address + self.parameter["movement"]["rotation_1"], speed)
+    def setPartyLightRotationSpeed(self,speed:int):
+        self.dmx.set_channel(self.start_address + self.parameter["movement"]["party_rotation"], speed)
+    def setLAZERRotationSpeed(self,speed:int):
+        self.dmx.set_channel(self.start_address + self.parameter["movement"]["lazer_rotation"], speed)
+
+
+
+"""
+!!! mélange de couleur non traité
+"""
+#11 cannaux utilisés
+#pan en degréé * 2
+# tilt : 125 c'es tdroit
+class LyreSylvain(DMXLightFixtures, DMXMovingHeadFixture):
+    def __init__(self, name, start_address, dmx):
+        super().__init__(name, start_address, dmx)
+        self.parameter = {
+            "enable_light": 8,
+            "movement":
+                {
+                    "pan": 1,
+                    "pan_fine": 2,
+                    "tilt": 3,
+                    "tilt_fine":4
+                },
+            "light":
+                {
+                    "channel": 5,
+                    "macroColors": {
+                        "white":(0,9),
+                        "red":(10,19),
+                        "green":(20,29),
+                        "blue":(30,39),
+                        "yellow":(40,49),
+                        "orange":(59,59),
+                        "light_blue":(60,69),
+                        "pink":(70,79),
+                    }
+                },
+            "gobos":
+                {
+                    "channel": 6,
+                    "open": (0, 7),
+                    "gobo1": (8, 15),
+                    "gobo2": (16, 23),
+                    "gobo3": (24, 31),
+                    "gobo4": (32, 39),
+                    "gobo5": (40, 47),
+                    "gobo6": (48, 55),
+                    "gobo7": (56, 63),
+                    "gobo1_shake": (64, 71),
+                    "gobo2_shake": (72, 79),
+                    "gobo3_shake": (80, 87),
+                    "gobo4_shake": (88, 95),
+                    "gobo5_shake": (96, 103),
+                    "gobo6_shake": (104, 111),
+                    "gobo7_shake": (112, 119),
+                    "gobo_rainbow": (120, 127),
+                    "gobo_auto_scroll": (128, 255)
+                },
+            "auto_sound": {
+                "channel": 10,  # à adapter selon ton mapping
+                "modes": {
+                    "off": (0, 59),
+                    "auto1": (60, 84),
+                    "auto2": (85, 109),
+                    "auto3": (110, 134),
+                    "auto4": (135, 159),
+                    "sound0": (160, 184),
+                    "sound1": (185, 209),
+                    "sound2": (210, 234),
+                    "sound3": (235, 249),
+                    "reset": (250, 255)
+                }
+            },
+            "stroboscope_speed": 7,
+            "test": 11
+        }
+
+    def enableLight(self, isEnabled):
+        if isEnabled:
+            self.dmx.set_channel(self.start_address + self.parameter["enable_light"], 255)
+        else:
+            self.dmx.set_channel(self.start_address + self.parameter["enable_light"], 0)
+
+    def setColor(self, color:str):
+        dmxColor = CouleurDMX("macro", color, self.parameter["light"]["macroColors"]).get_dmx()
+        self.dmx.set_channel(self.start_address + self.parameter["light"]["channel"], dmxColor)
+
+    def setStroboscopeSpeed(self, speed:int):
+        self.dmx.set_channel(self.start_address + self.parameter["stroboscope_speed"], speed)
+
+    def turnOffAllLight(self):
+        self.enableLight(False)
+        self.setStroboscopeSpeed(0)
+
+    def setGobo(self, gobo_name:str):
+        mode_dict = self.parameter["gobos"]
+        if gobo_name not in mode_dict:
+            raise ValueError(f"Mode auto/sound inconnu : {gobo_name}")
+        plage = mode_dict[gobo_name]
+        valeur = (plage[0] + plage[1]) // 2
+        channel = self.parameter["gobos"]["channel"]
+        self.dmx.set_channel(self.start_address + channel, valeur)
+
+    def setPanPos(self, pan_angle:int):
+        self.dmx.set_channel(self.start_address + self.parameter["movement"]["pan"], pan_angle)
+        self.currentPan = pan_angle
+
+    def setTiltPos(self, tilt_angle:int):
+        self.dmx.set_channel(self.start_address + self.parameter["movement"]["tilt"], tilt_angle)
+        self.currentTilt = tilt_angle
+
     def enableAutoMode(self, mode_name:str):
         mode_dict = self.parameter["auto_sound"]["modes"]
         if mode_name not in mode_dict:
@@ -675,6 +715,102 @@ class LyreSylvain(DMXLightFixtures, DMXMovingFixture):
         channel = self.parameter["auto_sound"]["channel"]
         self.dmx.set_channel(self.start_address + channel, valeur)
 
+#11 cannaux utilisés
+#pan en degréé * 2
+# tilt : 125 c'es tdroit
+class LyreWash(DMXLightRGBFixtures, DMXMovingHeadFixture):
+    def __init__(self, name, start_address, dmx):
+        super().__init__(name, start_address, dmx)
+        self.parameter = {
+            "movement":
+                {
+                    "pan": 1,
+                    "pan_fine": 2,
+                    "tilt": 3,
+                    "tilt_fine":4,
+                    "maxspeed": 5
+                },
+            "light":
+                {
+                    "r": 7,
+                    "g": 8,
+                    "b": 9,
+                    "w": 10
+                },
+            "jumpSpeed": 12,
+            "auto_sound": {
+                "channel": 13,  # à adapter selon ton mapping
+                "modes": {
+                    "off": (0, 59),
+                    "auto1": (60, 84),
+                    "auto2": (85, 109),
+                    "auto3": (110, 134),
+                    "auto4": (135, 159),
+                    "sound0": (160, 184),
+                    "sound1": (185, 209),
+                    "sound2": (210, 234),
+                    "sound3": (235, 249),
+                    "reset": (250, 255)
+                }
+            },
+            "reset": 14,
+            "enable_light": {
+                "channel": 6,
+                "modes": {
+                    "close": (0, 7),
+                    "increase": (8,134), #augmente progressivement l'intensité lumineuse
+                    "strob": (135, 239),
+                    "open": (240, 255)
+                }
+            }
+        }
+
+    def enableLight(self, isEnabled):
+        if isEnabled:
+            self.dmx.set_channel(self.start_address + self.parameter["enable_light"]["channel"], 255)
+        else:
+            self.dmx.set_channel(self.start_address + self.parameter["enable_light"]["channel"], 0)
+
+    def setColor(self, color:str):
+        dmxColor = CouleurDMX("rgb", color, None).get_dmx()
+        self.dmx.set_channel(self.start_address + self.parameter["light"]["r"], dmxColor[0])
+        self.dmx.set_channel(self.start_address + self.parameter["light"]["g"], dmxColor[1])
+        self.dmx.set_channel(self.start_address + self.parameter["light"]["b"], dmxColor[2])
+        self.current_color = (dmxColor[0], dmxColor[1], dmxColor[2])
+
+    def setWhite(self, intensity:int):
+        self.dmx.set_channel(self.start_address + self.parameter["light"]["w"], intensity)
+
+    def setGobo(self, gobo_name: str):
+        pass
+
+    def setStroboscopeSpeed(self, speed:int):
+        # on réequilibre avec un coef
+        a = 255/(self.parameter["enable_light"]["modes"]["strob"][1]-self.parameter["enable_light"]["modes"]["strob"][0])
+        self.dmx.set_channel(self.start_address + self.parameter["enable_light"]["channel"], round(speed*a))
+
+    def turnOffAllLight(self):
+        self.enableLight(False)
+        self.setWhite(0)
+        self.setStroboscopeSpeed(0)
+
+    def setPanPos(self, pan_angle:int):
+        self.dmx.set_channel(self.start_address + self.parameter["movement"]["pan"], pan_angle)
+        self.currentPan = pan_angle
+
+    def setTiltPos(self, tilt_angle:int):
+        self.dmx.set_channel(self.start_address + self.parameter["movement"]["tilt"], tilt_angle)
+        self.currentTilt = tilt_angle
+
+    # todo
+    def enableAutoMode(self, mode_name:str):
+        mode_dict = self.parameter["auto_sound"]["modes"]
+        if mode_name not in mode_dict:
+            raise ValueError(f"Mode auto/sound inconnu : {mode_name}")
+        plage = mode_dict[mode_name]
+        valeur = (plage[0] + plage[1]) // 2
+        channel = self.parameter["auto_sound"]["channel"]
+        self.dmx.set_channel(self.start_address + channel, valeur)
 
 class RGBStripLed(DMXLightRGBFixtures):
 
@@ -738,27 +874,6 @@ class UVLight(DMXLightFixtures):
         pass
 
 
-class LyreGroup:
-    def __init__(self, lyres):
-        self.lyres = lyres
-
-    # comme la méhode existe pas on l'applique à l'ensemble des lyres du groupe
-    def __getattr__(self, attr):
-        def group_method(*args, **kwargs):
-            for lyre in self.lyres:
-                method = getattr(lyre, attr, None)
-                if callable(method):
-                    method(*args, **kwargs)
-                else:
-                    print(f"[WARN] {lyre.name} n’a pas la méthode {attr}")
-        return group_method
-
-    def soumis(self, master_group):
-        min_count = min(len(self.lyres), len(master_group.lyres))
-        for i in range(min_count):
-            slave = self.lyres[i]
-            master = master_group.lyres[i]
-            master.addSlave(slave)
 
 
 

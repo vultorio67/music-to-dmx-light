@@ -5,15 +5,21 @@ fixtures:
   bottom: []
   left:
   - adresse: 1
+    name: wash1
+    type: LyreWash
+  - adresse: 15
     name: lyre1
     type: LyreSylvain
   other: []
   right:
-  - adresse: 12
+  - adresse: 27
     name: lyre2
     type: LyreSylvain
+  - adresse: 39
+    name: wash2
+    type: LyreWash
   top:
-  - adresse: 23
+  - adresse: 53
     name: my1
     type: MyLight
 window:

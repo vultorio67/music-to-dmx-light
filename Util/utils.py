@@ -75,3 +75,4 @@ def sleepBeatTime(controller, times:int):
     for i in range(times):
         sleepTime = calculateSleepTime(controller)
         time.sleep(sleepTime)
+

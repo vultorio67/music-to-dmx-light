@@ -7,13 +7,19 @@ from typing import List
 
 import cv2
 
-from MusicDmx.DmxSignalGenerator import DMXSignalGenerator
+from MusicDmx.DmxSignalGenerator import DMXSignalGenerator, ArtNetSignalGenerator
 from MusicDmx.ShowGenerator import ShowGenerator
 from MusicDmx.RekordboxWindow import RekordbowWindow
 from MusicDmx.Univers_DMX import Univers_DMX
 from MusicDmx.fixtures.Scenes import SceneBank
 from Util import Config
 
+import logging
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(levelname)s - %(message)s"
+)
 
 class MainController:
     def __init__(self):
@@ -39,7 +45,7 @@ class MainController:
 
 
     def start(self):
-        print("[MainController] Starting system...")
+        logging.info("[MainController] Starting system...")
 
         # start sending dmx signal
         self.dmxSignalGenerator.start()
@@ -66,7 +72,7 @@ class MainController:
                 beatList = self.window_queue.get()
                 self.showGenerator.update_beat(beatList)
         except KeyboardInterrupt:
-            print("[MainController] Shutting down...")
+            logging.error("[MainController] Shutting down...")
 
 
 
