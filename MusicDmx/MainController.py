@@ -7,7 +7,7 @@ from typing import List
 
 import cv2
 
-from MusicDmx.DmxSignalGenerator import DMXSignalGenerator, ArtNetSignalGenerator
+from MusicDmx.DmxSignalGenerator import DMXSignalGenerator, ArtNetDMXSignalGenerator
 from MusicDmx.ShowGenerator import ShowGenerator
 from MusicDmx.RekordboxWindow import RekordbowWindow
 from MusicDmx.Univers_DMX import Univers_DMX
@@ -21,6 +21,8 @@ logging.basicConfig(
     format="%(levelname)s - %(message)s"
 )
 
+use_artnet = True
+
 class MainController:
     def __init__(self):
         # Queues pour la communication entre threads
@@ -32,7 +34,10 @@ class MainController:
 
         self.rekordboxWindow = RekordbowWindow()
 
-        self.dmxSignalGenerator = DMXSignalGenerator(self)
+        if use_artnet:
+            self.dmxSignalGenerator = ArtNetDMXSignalGenerator(self)
+        else:
+            self.dmxSignalGenerator = DMXSignalGenerator(self)
 
         self.univers_dmx = Univers_DMX(self)
 

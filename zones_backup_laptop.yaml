@@ -1,0 +1,40 @@
+deck1Area:
+  height: 87
+  width: 433
+  x: 756
+  y: 197
+deck2Area:
+  height: 87
+  width: 433
+  x: 756
+  y: 288
+master1Detect:
+  height: 20
+  width: 100
+  x: 865
+  y: 415
+master2Detect:
+  height: 20
+  width: 100
+  x: 1828
+  y: 415
+partDetection1:
+  height: 24
+  width: 951
+  x: 13
+  y: 491
+partDetection2:
+  height: 24
+  width: 951
+  x: 976
+  y: 491
+timeLine1:
+  height: 41
+  width: 950
+  x: 13
+  y: 445
+timeLine2:
+  height: 41
+  width: 950
+  x: 976
+  y: 445

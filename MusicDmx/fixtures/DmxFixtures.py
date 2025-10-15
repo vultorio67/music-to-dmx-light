@@ -627,7 +627,7 @@ class LyreSylvain(DMXLightFixtures, DMXMovingHeadFixture):
                         "green":(20,29),
                         "blue":(30,39),
                         "yellow":(40,49),
-                        "orange":(59,59),
+                        "orange":(50,59),
                         "light_blue":(60,69),
                         "pink":(70,79),
                     }
